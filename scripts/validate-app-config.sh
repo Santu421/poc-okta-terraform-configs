@@ -14,6 +14,7 @@ declare -A VALIDATION_RULES
 VALIDATION_RULES["2leg-api"]="client_credentials"
 VALIDATION_RULES["3leg-spa"]="authorization_code,refresh_token"
 VALIDATION_RULES["3leg-webapp"]="authorization_code,refresh_token"
+VALIDATION_RULES["3leg-native"]="password,refresh_token"
 VALIDATION_RULES["hybrid-spa-api"]="authorization_code,refresh_token,client_credentials"
 
 # Function to show usage
@@ -24,6 +25,7 @@ show_usage() {
     echo "  2leg-api      - API service (client_credentials only)"
     echo "  3leg-spa      - SPA application (authorization_code + refresh_token only)"
     echo "  3leg-webapp   - Web application (authorization_code + refresh_token only)"
+    echo "  3leg-native   - Native application (password + refresh_token only)"
     echo "  hybrid-spa-api - Hybrid app (authorization_code + refresh_token + client_credentials)"
     echo ""
     echo "Options:"

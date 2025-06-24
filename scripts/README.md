@@ -91,6 +91,7 @@ Validates all applications in your Okta organization against their expected conf
 | `2leg-api` | `client_credentials` | Server-to-server API services |
 | `3leg-spa` | `authorization_code`, `refresh_token` | Single Page Applications |
 | `3leg-webapp` | `authorization_code`, `refresh_token` | Traditional web applications |
+| `3leg-native` | `password`, `refresh_token` | Native mobile/desktop applications |
 | `hybrid-spa-api` | `authorization_code`, `refresh_token`, `client_credentials` | Hybrid applications |
 
 ## Configuration
@@ -146,6 +147,7 @@ If no mapping file exists, the script uses these naming conventions:
 - Apps ending with `-api` or `_api` → `2leg-api`
 - Apps ending with `-spa` or `_spa` → `3leg-spa`
 - Apps ending with `-web`, `_web`, or `-webapp` → `3leg-webapp`
+- Apps ending with `-native`, `_native`, `-mobile`, or `_mobile` → `3leg-native`
 - Apps ending with `-hybrid` or `_hybrid` → `hybrid-spa-api`
 - All others → `3leg-webapp` (default)
 

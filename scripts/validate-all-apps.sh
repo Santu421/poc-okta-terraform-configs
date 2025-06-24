@@ -47,6 +47,8 @@ create_default_mapping() {
             APP_TYPE_MAPPING["$app_name"]="3leg-spa"
         elif [[ "$app_name" =~ -web$ ]] || [[ "$app_name" =~ _web$ ]] || [[ "$app_name" =~ -webapp$ ]]; then
             APP_TYPE_MAPPING["$app_name"]="3leg-webapp"
+        elif [[ "$app_name" =~ -native$ ]] || [[ "$app_name" =~ _native$ ]] || [[ "$app_name" =~ -mobile$ ]] || [[ "$app_name" =~ _mobile$ ]]; then
+            APP_TYPE_MAPPING["$app_name"]="3leg-native"
         elif [[ "$app_name" =~ -hybrid$ ]] || [[ "$app_name" =~ _hybrid$ ]]; then
             APP_TYPE_MAPPING["$app_name"]="hybrid-spa-api"
         else
@@ -114,6 +116,8 @@ create_mapping_file() {
             echo "$app_name=3leg-spa" >> "$mapping_file"
         elif [[ "$app_name" =~ -web$ ]] || [[ "$app_name" =~ _web$ ]] || [[ "$app_name" =~ -webapp$ ]]; then
             echo "$app_name=3leg-webapp" >> "$mapping_file"
+        elif [[ "$app_name" =~ -native$ ]] || [[ "$app_name" =~ _native$ ]] || [[ "$app_name" =~ -mobile$ ]] || [[ "$app_name" =~ _mobile$ ]]; then
+            echo "$app_name=3leg-native" >> "$mapping_file"
         elif [[ "$app_name" =~ -hybrid$ ]] || [[ "$app_name" =~ _hybrid$ ]]; then
             echo "$app_name=hybrid-spa-api" >> "$mapping_file"
         else

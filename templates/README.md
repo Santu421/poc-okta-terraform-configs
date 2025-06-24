@@ -43,6 +43,19 @@ This directory contains templated configurations for different types of OAuth ap
 - Secure server-side token handling
 - Traditional web application pattern
 
+### 4. **3-Leg OAuth (Native Mobile/Desktop)** - `oauth-3leg-native.tfvars`
+**Use Case**: Native mobile and desktop applications
+- **Grant Type**: `password`, `refresh_token`
+- **Authentication**: `client_secret_basic`
+- **Flow**: Resource Owner Password Credentials
+- **Best For**: Mobile apps, desktop clients, native applications
+
+**Key Features**:
+- Password grant for direct authentication
+- Client secret for secure token exchange
+- Refresh token support
+- Ideal for native applications with user credentials
+
 ## Usage
 
 ### Quick Start
@@ -62,6 +75,10 @@ Generate a new application configuration using the template script:
 ./scripts/generate-app-from-template.sh 3leg-webapp my-webapp "My Web App" \
   --redirect-uri https://app.example.com/callback \
   --trusted-origin-url https://app.example.com
+
+# Generate a 3-leg native app
+./scripts/generate-app-from-template.sh 3leg-native my-mobile "My Mobile App" \
+  --trusted-origin-url https://api.example.com
 ```
 
 ### Template Variables
@@ -83,14 +100,14 @@ All templates use the following placeholder variables:
 
 ## OAuth Flow Comparison
 
-| Aspect | 2-Leg API | 3-Leg SPA | 3-Leg Web App |
-|--------|-----------|-----------|---------------|
-| **User Interaction** | None | Required | Required |
-| **Client Secret** | Required | None | Required |
-| **PKCE** | Not applicable | Required | Optional |
-| **Refresh Tokens** | Not applicable | Supported | Supported |
-| **Use Case** | Server-to-server | Browser apps | Server apps |
-| **Security Level** | High | Medium | High |
+| Aspect | 2-Leg API | 3-Leg SPA | 3-Leg Web App | 3-Leg Native |
+|--------|-----------|-----------|---------------|--------------|
+| **User Interaction** | None | Required | Required | Required |
+| **Client Secret** | Required | None | Required | Required |
+| **PKCE** | Not applicable | Required | Optional | Not applicable |
+| **Refresh Tokens** | Not applicable | Supported | Supported | Supported |
+| **Use Case** | Server-to-server | Browser apps | Server apps | Native apps |
+| **Security Level** | High | Medium | High | Medium |
 
 ## Security Considerations
 
@@ -111,6 +128,12 @@ All templates use the following placeholder variables:
 - ✅ Tokens stored server-side
 - ⚠️ Client secret must be securely stored
 - ⚠️ Requires server-side session management
+
+### 3-Leg Native Applications
+- ✅ Password grant provides direct authentication
+- ✅ Client secret for secure token exchange
+- ⚠️ Password grant requires user credentials in app
+- ⚠️ Tokens stored in native app (use secure storage)
 
 ## Deployment Workflow
 
