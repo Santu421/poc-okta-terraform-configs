@@ -1,0 +1,170 @@
+parameters:
+- name: appPath
+  displayName: 'App Path'
+  type: string
+  default: 'apps/app1'
+- name: appName
+  displayName: 'App Name'
+  type: string
+  default: 'app1'
+- name: environment
+  displayName: 'Environment'
+  type: string
+  default: 'dev'
+  values:
+  - dev
+  - staging
+  - prod
+- name: action
+  displayName: 'Terraform Action'
+  type: string
+  default: 'plan'
+  values:
+  - plan
+  - apply
+  - destroy
+- name: autoApprove
+  displayName: 'Auto Approve'
+  type: boolean
+  default: false
+
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  TF_VERSION: '1.5.0'
+  MODULES_REPO: 'poc-okta-terraform-modules'
+
+stages:
+- stage: Deploy
+  displayName: 'Deploy ${{ parameters.appName }} to ${{ parameters.environment }}'
+  condition: succeeded()
+  
+  jobs:
+  - deployment: DeployOktaResources
+    displayName: 'Deploy Okta Resources'
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: TerraformInstaller@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: $(TF_VERSION)
+
+          - task: PowerShell@2
+            displayName: 'Checkout Modules Repository'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $modulesPath = "../$(MODULES_REPO)"
+                if (Test-Path $modulesPath) {
+                  Write-Host "Modules repo exists, pulling latest..."
+                  Set-Location $modulesPath
+                  git pull origin main
+                  Set-Location "../poc-okta-terraform-configs"
+                } else {
+                  Write-Host "Cloning modules repo..."
+                  git clone https://dev.azure.com/$(System.TeamFoundationCollectionUri)/$(System.TeamProject)/_git/$(MODULES_REPO) $modulesPath
+                }
+
+          - task: PowerShell@2
+            displayName: 'Generate Terraform Configuration'
+            inputs:
+              targetType: 'inline'
+              script: |
+                Set-Location $(System.DefaultWorkingDirectory)
+                chmod +x scripts/generate-terraform.sh
+                ./scripts/generate-terraform.sh ${{ parameters.appPath }} ${{ parameters.appName }}
+
+          - task: PowerShell@2
+            displayName: 'Setup Environment Backend'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $backendFile = "generated/${{ parameters.appName }}/../../environments/${{ parameters.environment }}/backend.tf"
+                if (Test-Path $backendFile) {
+                  Write-Host "Copying environment-specific backend..."
+                  Copy-Item $backendFile "generated/${{ parameters.appName }}/backend.tf"
+                }
+            condition: ne('${{ parameters.environment }}', 'dev')
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/generated/${{ parameters.appName }}'
+              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Plan'
+            inputs:
+              provider: 'azurerm'
+              command: 'plan'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/generated/${{ parameters.appName }}'
+              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+              commandOptions: '-detailed-exitcode'
+            env:
+              TF_VAR_okta_org_url: $(OKTA_ORG_URL)
+              TF_VAR_okta_api_token: $(OKTA_API_TOKEN)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Apply (Auto)'
+            condition: and(eq('${{ parameters.action }}', 'apply'), eq('${{ parameters.autoApprove }}', true))
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/generated/${{ parameters.appName }}'
+              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+              commandOptions: '-auto-approve'
+            env:
+              TF_VAR_okta_org_url: $(OKTA_ORG_URL)
+              TF_VAR_okta_api_token: $(OKTA_API_TOKEN)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Apply (Manual)'
+            condition: and(eq('${{ parameters.action }}', 'apply'), eq('${{ parameters.autoApprove }}', false))
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/generated/${{ parameters.appName }}'
+              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+            env:
+              TF_VAR_okta_org_url: $(OKTA_ORG_URL)
+              TF_VAR_okta_api_token: $(OKTA_API_TOKEN)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Destroy (Auto)'
+            condition: and(eq('${{ parameters.action }}', 'destroy'), eq('${{ parameters.autoApprove }}', true))
+            inputs:
+              provider: 'azurerm'
+              command: 'destroy'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/generated/${{ parameters.appName }}'
+              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+              commandOptions: '-auto-approve'
+            env:
+              TF_VAR_okta_org_url: $(OKTA_ORG_URL)
+              TF_VAR_okta_api_token: $(OKTA_API_TOKEN)
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Destroy (Manual)'
+            condition: and(eq('${{ parameters.action }}', 'destroy'), eq('${{ parameters.autoApprove }}', false))
+            inputs:
+              provider: 'azurerm'
+              command: 'destroy'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/generated/${{ parameters.appName }}'
+              environmentServiceNameAzureRM: 'Azure-Service-Connection'
+            env:
+              TF_VAR_okta_org_url: $(OKTA_ORG_URL)
+              TF_VAR_okta_api_token: $(OKTA_API_TOKEN)
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Terraform Plan'
+            condition: eq('${{ parameters.action }}', 'plan')
+            inputs:
+              pathToPublish: '$(System.DefaultWorkingDirectory)/generated/${{ parameters.appName }}/terraform.tfplan'
+              artifactName: 'terraform-plan-${{ parameters.appName }}-${{ parameters.environment }}' 

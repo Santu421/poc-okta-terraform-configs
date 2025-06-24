@@ -1,0 +1,129 @@
+name: Deploy Okta Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_path:
+        description: 'App path (e.g., apps/app1)'
+        required: true
+        default: 'apps/app1'
+      app_name:
+        description: 'App name'
+        required: true
+        default: 'app1'
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+        - prod
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+      auto_approve:
+        description: 'Auto approve apply/destroy'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  TF_VERSION: "1.5.0"
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event.inputs.app_name }} to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout configs repository
+        uses: actions/checkout@v4
+        with:
+          path: configs
+
+      - name: Checkout modules repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/poc-okta-terraform-modules
+          path: modules
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Generate Terraform configuration
+        run: |
+          cd configs
+          chmod +x scripts/generate-terraform.sh
+          ./scripts/generate-terraform.sh ${{ github.event.inputs.app_path }} ${{ github.event.inputs.app_name }}
+        env:
+          MODULES_REPO_PATH: "../modules"
+
+      - name: Setup environment backend
+        run: |
+          cd configs/generated/${{ github.event.inputs.app_name }}
+          if [ -f "../../environments/${{ github.event.inputs.environment }}/backend.tf" ]; then
+            cp "../../environments/${{ github.event.inputs.environment }}/backend.tf" .
+          fi
+        if: github.event.inputs.environment != 'dev'
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: configs/generated/${{ github.event.inputs.app_name }}
+
+      - name: Terraform Plan
+        run: terraform plan -detailed-exitcode
+        working-directory: configs/generated/${{ github.event.inputs.app_name }}
+        env:
+          TF_VAR_okta_org_url: ${{ secrets.OKTA_ORG_URL }}
+          TF_VAR_okta_api_token: ${{ secrets.OKTA_API_TOKEN }}
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply' && github.event.inputs.auto_approve == 'true'
+        run: terraform apply -auto-approve
+        working-directory: configs/generated/${{ github.event.inputs.app_name }}
+        env:
+          TF_VAR_okta_org_url: ${{ secrets.OKTA_ORG_URL }}
+          TF_VAR_okta_api_token: ${{ secrets.OKTA_API_TOKEN }}
+
+      - name: Terraform Apply (Manual Approval)
+        if: github.event.inputs.action == 'apply' && github.event.inputs.auto_approve == 'false'
+        run: terraform apply
+        working-directory: configs/generated/${{ github.event.inputs.app_name }}
+        env:
+          TF_VAR_okta_org_url: ${{ secrets.OKTA_ORG_URL }}
+          TF_VAR_okta_api_token: ${{ secrets.OKTA_API_TOKEN }}
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy' && github.event.inputs.auto_approve == 'true'
+        run: terraform destroy -auto-approve
+        working-directory: configs/generated/${{ github.event.inputs.app_name }}
+        env:
+          TF_VAR_okta_org_url: ${{ secrets.OKTA_ORG_URL }}
+          TF_VAR_okta_api_token: ${{ secrets.OKTA_API_TOKEN }}
+
+      - name: Terraform Destroy (Manual Approval)
+        if: github.event.inputs.action == 'destroy' && github.event.inputs.auto_approve == 'false'
+        run: terraform destroy
+        working-directory: configs/generated/${{ github.event.inputs.app_name }}
+        env:
+          TF_VAR_okta_org_url: ${{ secrets.OKTA_ORG_URL }}
+          TF_VAR_okta_api_token: ${{ secrets.OKTA_API_TOKEN }}
+
+      - name: Upload Terraform Plan
+        if: github.event.inputs.action == 'plan'
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ github.event.inputs.app_name }}-${{ github.event.inputs.environment }}
+          path: configs/generated/${{ github.event.inputs.app_name }}/terraform.tfplan 
