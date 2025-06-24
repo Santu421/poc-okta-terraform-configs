@@ -1,0 +1,32 @@
+# FINANCE_EXPENSE_TRACKER Application Configuration
+# This app has both frontend (SPA) and backend (API) components
+
+app_name: "FINANCE_EXPENSE_TRACKER"
+app_label: "Finance Expense Tracker"
+point_of_contact_email: "finance-team@company.com"
+app_owner: "Finance IT Team"
+onboarding_snow_request: "SNOWREQ123456"
+
+oauth_config:
+  # 2-leg API for backend services
+  create_2leg: true
+  
+  # 3-leg frontend SPA for user interface
+  create_3leg_frontend: true
+  
+  # 3-leg backend web app (not needed for this app)
+  create_3leg_backend: false
+  
+  # 3-leg native app (not needed for this app)
+  create_3leg_native: false
+  
+  # SAML app (not implemented yet)
+  create_saml: false
+  
+  # OAuth scopes
+  scopes:
+    - "openid"
+    - "profile"
+    - "email"
+    - "finance:read"
+    - "finance:write" 

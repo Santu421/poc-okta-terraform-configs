@@ -1,0 +1,77 @@
+# Okta App Configuration Schema - Basic Version
+# This schema defines the structure and validation rules for app configurations
+
+type: object
+required:
+  - app_name
+  - app_label
+  - point_of_contact_email
+  - app_owner
+  - onboarding_snow_request
+  - oauth_config
+properties:
+  app_name:
+    type: string
+    pattern: '^[A-Z0-9_]+$'
+    description: "Application name in UPPERCASE with underscores (e.g., FINANCE_EXPENSE_TRACKER)"
+  
+  app_label:
+    type: string
+    description: "Human-readable application label"
+  
+  point_of_contact_email:
+    type: string
+    format: email
+    description: "Primary point of contact email for this app"
+  
+  app_owner:
+    type: string
+    description: "App owner (team, group, or person)"
+  
+  onboarding_snow_request:
+    type: string
+    description: "ServiceNow onboarding request (ticket number or URL)"
+  
+  oauth_config:
+    type: object
+    required:
+      - create_2leg
+      - create_3leg_frontend
+      - create_3leg_backend
+      - create_3leg_native
+      - create_saml
+    properties:
+      create_2leg:
+        type: boolean
+        description: "Create 2-leg OAuth app (client credentials)"
+      
+      create_3leg_frontend:
+        type: boolean
+        description: "Create 3-leg frontend OAuth app (SPA with PKCE)"
+      
+      create_3leg_backend:
+        type: boolean
+        description: "Create 3-leg backend OAuth app (web app with client secret)"
+      
+      create_3leg_native:
+        type: boolean
+        description: "Create 3-leg native OAuth app (password grant)"
+      
+      create_saml:
+        type: boolean
+        description: "Create SAML app (not implemented yet)"
+        default: false
+      
+      scopes:
+        type: array
+        items:
+          type: string
+        description: "OAuth scopes to request"
+        default: []
+
+# Validation Rules:
+# 1. Folder name must match pattern: DIVISIONNAME_APPNAME
+# 2. Only one 3-leg app type can be true at a time
+# 3. 2-leg and 3-leg can be combined (hybrid)
+# 4. SAML must be false (not implemented)
+# 5. At least one OAuth type must be true 
