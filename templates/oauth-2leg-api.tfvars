@@ -1,11 +1,11 @@
 # Template for 2-Leg OAuth Application (API Services)
-# This template is for server-to-server API authentication using client credentials flow
+# This template is for server-to-server API authentication using client credentials flow only
 
 # OAuth App Configuration
 app_name = "{{APP_NAME}}"
 app_label = "{{APP_LABEL}}"
 
-# Grant Types for 2-leg (API Services)
+# Grant Types for 2-leg (API Services) - Client Credentials only
 grant_types = ["client_credentials"]
 
 # No redirect URIs needed for client credentials flow
@@ -17,7 +17,7 @@ response_types = []
 # Authentication method for API services
 token_endpoint_auth_method = "client_secret_basic"
 
-# App visibility settings
+# App visibility settings - Hidden from users since it's server-to-server
 auto_submit_toolbar = false
 hide_ios = true
 hide_web = true

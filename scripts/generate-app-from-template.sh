@@ -6,7 +6,7 @@
 set -e
 
 # Template types
-TEMPLATE_TYPES=("2leg-api" "3leg-spa" "3leg-webapp")
+TEMPLATE_TYPES=("2leg-api" "3leg-spa" "3leg-webapp" "hybrid-spa-api")
 
 # Function to show usage
 show_usage() {
@@ -16,6 +16,7 @@ show_usage() {
     echo "  2leg-api     - 2-leg OAuth (API Services, Client Credentials)"
     echo "  3leg-spa     - 3-leg OAuth (Frontend SPA, Authorization Code + PKCE)"
     echo "  3leg-webapp  - 3-leg OAuth (Web App Backend, Authorization Code)"
+    echo "  hybrid-spa-api - Hybrid SPA/API application"
     echo ""
     echo "Required Parameters:"
     echo "  template_type - Type of OAuth application template"

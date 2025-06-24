@@ -1,0 +1,26 @@
+# App Type Mapping File
+# Format: app_name=app_type
+# App types: 2leg-api, 3leg-spa, 3leg-webapp, hybrid-spa-api
+#
+# This file maps Okta application names to their expected OAuth grant types
+# The validation scripts use this to enforce security restrictions
+
+# API Services (2-leg, client credentials only)
+my-api-service=2leg-api
+internal-api=2leg-api
+microservice-api=2leg-api
+
+# Single Page Applications (3-leg, authorization code + PKCE)
+my-spa-app=3leg-spa
+react-dashboard=3leg-spa
+angular-portal=3leg-spa
+
+# Web Applications (3-leg, authorization code + client secret)
+my-web-app=3leg-webapp
+admin-portal=3leg-webapp
+legacy-web-app=3leg-webapp
+
+# Hybrid Applications (3-leg + client credentials)
+my-hybrid-app=hybrid-spa-api
+full-stack-app=hybrid-spa-api
+enterprise-app=hybrid-spa-api 

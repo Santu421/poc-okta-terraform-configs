@@ -1,11 +1,11 @@
 # Template for 3-Leg OAuth Application (Frontend SPA)
-# This template is for single-page applications using authorization code with PKCE
+# This template is for single-page applications using authorization code with PKCE only
 
 # OAuth App Configuration
 app_name = "{{APP_NAME}}"
 app_label = "{{APP_LABEL}}"
 
-# Grant Types for 3-leg (SPA)
+# Grant Types for 3-leg (SPA) - Authorization Code only
 grant_types = ["authorization_code", "refresh_token"]
 
 # Redirect URIs for SPA
@@ -17,11 +17,11 @@ redirect_uris = [
 # Response Types for SPA
 response_types = ["code"]
 
-# Authentication method for SPA (PKCE is required)
+# Authentication method for SPA (PKCE is required, no client secret)
 token_endpoint_auth_method = "none"
 pkce_required = true
 
-# App visibility settings
+# App visibility settings - Visible to users
 auto_submit_toolbar = false
 hide_ios = false
 hide_web = false
