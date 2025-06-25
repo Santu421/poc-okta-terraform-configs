@@ -1,0 +1,212 @@
+name: Deploy Okta App
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: 'App name to deploy (e.g., FINANCE_EXPENSE_TRACKER)'
+        required: true
+        type: string
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  TF_VERSION: "1.5.0"
+  OKTA_ORG_URL: ${{ secrets.OKTA_ORG_URL }}
+  OKTA_API_TOKEN: ${{ secrets.OKTA_API_TOKEN }}
+
+jobs:
+  validate-and-generate:
+    runs-on: ubuntu-latest
+    outputs:
+      app_folder: ${{ steps.validate.outputs.app_folder }}
+      tfvars_files: ${{ steps.generate.outputs.tfvars_files }}
+    
+    steps:
+    - name: Checkout configs repository
+      uses: actions/checkout@v4
+      with:
+        path: configs
+    
+    - name: Checkout modules repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/poc-okta-terraform-modules
+        path: modules
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install yq
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod a+x /usr/local/bin/yq
+    
+    - name: Validate YAML and generate .tfvars
+      id: validate
+      run: |
+        cd configs
+        chmod +x scripts/validate-yaml-config.sh
+        ./scripts/validate-yaml-config.sh apps/${{ github.event.inputs.app_name }}
+        echo "app_folder=apps/${{ github.event.inputs.app_name }}" >> $GITHUB_OUTPUT
+    
+    - name: Check generated .tfvars files
+      id: generate
+      run: |
+        cd configs
+        TFVARS_FILES=""
+        for file in apps/${{ github.event.inputs.app_name }}/*.tfvars; do
+          if [ -f "$file" ]; then
+            TFVARS_FILES="$TFVARS_FILES $(basename "$file")"
+          fi
+        done
+        echo "tfvars_files=$TFVARS_FILES" >> $GITHUB_OUTPUT
+        echo "Generated .tfvars files: $TFVARS_FILES"
+    
+    - name: Copy .tfvars to modules repo
+      run: |
+        mkdir -p modules/deployments/${{ github.event.inputs.app_name }}
+        cp configs/apps/${{ github.event.inputs.app_name }}/*.tfvars modules/deployments/${{ github.event.inputs.app_name }}/
+        cp configs/apps/${{ github.event.inputs.app_name }}/app-config.yaml modules/deployments/${{ github.event.inputs.app_name }}/
+    
+    - name: Commit .tfvars to modules repo
+      run: |
+        cd modules
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add deployments/${{ github.event.inputs.app_name }}/
+        git commit -m "feat: Add .tfvars for ${{ github.event.inputs.app_name }} deployment"
+        git push origin main
+
+  terraform-plan:
+    needs: validate-and-generate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Checkout modules repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/poc-okta-terraform-modules
+        path: modules
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Generate Terraform configuration
+      run: |
+        cd modules
+        chmod +x ../configs/scripts/generate-terraform.sh
+        ../configs/scripts/generate-terraform.sh deployments/${{ github.event.inputs.app_name }} ${{ github.event.inputs.app_name }}
+    
+    - name: Terraform Init
+      run: |
+        cd modules/generated/${{ github.event.inputs.app_name }}
+        terraform init
+    
+    - name: Terraform Plan
+      id: plan
+      run: |
+        cd modules/generated/${{ github.event.inputs.app_name }}
+        terraform plan -out=tfplan
+        terraform show -no-color tfplan > plan.txt
+      continue-on-error: true
+    
+    - name: Comment Plan
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      env:
+        PLAN: "${{ steps.plan.outputs.stdout }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const output = `#### Terraform Plan 📝
+          \`\`\`\n
+          ${process.env.PLAN || 'No changes. Infrastructure is up-to-date.'}
+          \`\`\`
+          `;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          })
+    
+    - name: Upload Plan Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-plan
+        path: modules/generated/${{ github.event.inputs.app_name }}/plan.txt
+
+  terraform-apply:
+    needs: [validate-and-generate, terraform-plan]
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Checkout modules repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/poc-okta-terraform-modules
+        path: modules
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Download Plan Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: terraform-plan
+        path: modules/generated/${{ github.event.inputs.app_name }}
+    
+    - name: Terraform Apply
+      run: |
+        cd modules/generated/${{ github.event.inputs.app_name }}
+        terraform apply -auto-approve tfplan
+    
+    - name: Get Terraform Outputs
+      id: outputs
+      run: |
+        cd modules/generated/${{ github.event.inputs.app_name }}
+        terraform output -json > outputs.json
+        echo "outputs=$(cat outputs.json)" >> $GITHUB_OUTPUT
+    
+    - name: Comment Apply Results
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      env:
+        OUTPUTS: "${{ steps.outputs.outputs }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const outputs = JSON.parse(process.env.OUTPUTS || '{}');
+          const output = `#### Terraform Apply ✅
+          **App:** ${{ github.event.inputs.app_name }}
+          **Environment:** ${{ github.event.inputs.environment }}
+          
+          **Outputs:**
+          \`\`\`json
+          ${JSON.stringify(outputs, null, 2)}
+          \`\`\`
+          `;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          }) 
