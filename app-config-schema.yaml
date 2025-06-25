@@ -4,47 +4,43 @@
 
 type: object
 required:
-  - cmdb_app_name
+  - parent_cmdb_name
   - division_name
-  - cmdb_short_name
+  - cmdb_app_short_name
   - environment
-  - point_of_contact_email
-  - app_owner
-  - onboarding_snow_request
+  - team_dl
+  - requested_by
   - app_config
   - oauth_config
 properties:
-  cmdb_app_name:
+  parent_cmdb_name:
     type: string
-    description: "Human-readable application name (CMDB App Name)"
+    description: "Human-readable application name (Parent CMDB Name)"
   
   division_name:
     type: string
     enum: ["DIV1", "DIV2", "DIV3", "DIV4", "DIV5", "DIV6"]
     description: "Division name (must match folder name)"
   
-  cmdb_short_name:
+  cmdb_app_short_name:
     type: string
     pattern: '^[A-Z0-9]+$'
-    description: "CMDB short name (e.g., ET for Finance Expense Tracker)"
+    description: "CMDB app short name (e.g., XYZ for XYZ Application)"
   
   environment:
     type: string
     enum: ["dev", "uat", "prod"]
     description: "Environment name (must match folder name)"
   
-  point_of_contact_email:
+  team_dl:
     type: string
     format: email
-    description: "Primary point of contact email for this app"
+    description: "Team distribution list email for this app"
   
-  app_owner:
+  requested_by:
     type: string
-    description: "App owner (team, group, or person)"
-  
-  onboarding_snow_request:
-    type: string
-    description: "ServiceNow onboarding request (ticket number or URL)"
+    format: email
+    description: "Email of person who requested this app"
   
   # App Configuration - what to create
   app_config:
@@ -178,7 +174,7 @@ properties:
 # 1. Folder structure must be: apps/DIVISION/APPNAME/ENVIRONMENT/app-config.yaml
 # 2. Division name must be one of DIV1-DIV6
 # 3. Environment must be one of: dev, uat, prod
-# 4. CMDB short name must be uppercase alphanumeric only
+# 4. CMDB app short name must be uppercase alphanumeric only
 # 5. Division name in YAML must match folder name
 # 6. Environment in YAML must match folder name
 # 7. Only one 3-leg app type can be true at a time

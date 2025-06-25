@@ -1,0 +1,54 @@
+# XYZ Application Configuration
+# Environment: Production
+
+environment: "prod"
+
+# App Configuration - what to create
+app_config:
+  create_2leg: true
+  create_3leg_frontend: true
+  create_3leg_backend: false
+  create_3leg_native: false
+  create_saml: false
+
+# OAuth Configuration - OAuth app settings
+oauth_config:
+  # OAuth App Settings
+  scopes:
+    - "openid"
+    - "profile"
+    - "email"
+    - "xyz:read"
+    - "xyz:write"
+  
+  redirect_uris:
+    - "https://xyz.company.com/callback"
+    - "https://xyz.company.com/silent-renew"
+    - "https://xyz-api.company.com/callback"
+  
+  post_logout_uris:
+    - "https://xyz.company.com/logout"
+    - "https://xyz.company.com/signout"
+    - "https://xyz-api.company.com/logout"
+
+# Trusted Origins configuration
+trusted_origins:
+  - name: "XYZ Application Frontend"
+    url: "https://xyz.company.com"
+    scopes: ["CORS", "REDIRECT"]
+    status: "ACTIVE"
+  
+  - name: "XYZ Application API"
+    url: "https://xyz-api.company.com"
+    scopes: ["CORS", "REDIRECT"]
+    status: "ACTIVE"
+
+# Bookmarks configuration
+bookmarks:
+  - name: "XYZ Application Admin"
+    label: "XYZ Application - Admin Portal"
+    url: "https://xyz.company.com/admin"
+    status: "ACTIVE"
+    auto_submit_toolbar: false
+    hide_ios: false
+    hide_web: false 

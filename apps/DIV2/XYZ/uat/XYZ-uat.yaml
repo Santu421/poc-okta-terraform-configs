@@ -1,0 +1,48 @@
+# XYZ Application Configuration
+# Environment: UAT
+
+environment: "uat"
+
+# App Configuration - what to create
+app_config:
+  create_2leg: true
+  create_3leg_frontend: true
+  create_3leg_backend: false
+  create_3leg_native: false
+  create_saml: false
+
+# OAuth Configuration - OAuth app settings
+oauth_config:
+  # OAuth App Settings
+  scopes:
+    - "openid"
+    - "profile"
+    - "email"
+    - "xyz:read"
+    - "xyz:write"
+  
+  redirect_uris: []
+  
+  post_logout_uris: []
+
+# Trusted Origins configuration
+trusted_origins:
+  - name: "XYZ Application Frontend UAT"
+    url: "https://xyz-uat.company.com"
+    scopes: ["CORS", "REDIRECT"]
+    status: "ACTIVE"
+  
+  - name: "XYZ Application API UAT"
+    url: "https://xyz-api-uat.company.com"
+    scopes: ["CORS", "REDIRECT"]
+    status: "ACTIVE"
+
+# Bookmarks configuration
+bookmarks:
+  - name: "XYZ Application Admin UAT"
+    label: "XYZ Application - Admin Portal (UAT)"
+    url: "https://xyz-uat.company.com/admin"
+    status: "ACTIVE"
+    auto_submit_toolbar: false
+    hide_ios: false
+    hide_web: false 
