@@ -12,7 +12,7 @@ This document describes the workflow for managing Okta applications using Terraf
 ### Configs Repository (`poc-okta-terraform-configs`)
 ```
 apps/
-├── DIV1_FINANCE_EXPENSE_TRACKER/
+├── DIV1_ET_FINANCE_EXPENSE_TRACKER/
 │   ├── app-config.yaml          # App configuration
 │   ├── 2leg-api.tfvars          # Generated 2-leg OAuth config
 │   └── 3leg-frontend.tfvars     # Generated 3-leg frontend config
@@ -41,9 +41,10 @@ modules/
 ## Naming Conventions
 
 ### Folder Naming
-- **Pattern**: `DIVISIONNAME_APPNAME`
+- **Pattern**: `DIVISIONNAME_CMDBSHORTNAME_APPNAME`
 - **Division Names**: Must be one of `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
-- **Example**: `DIV1_FINANCE_EXPENSE_TRACKER`
+- **CMDB Short Name**: Uppercase alphanumeric only
+- **Example**: `DIV1_ET_FINANCE_EXPENSE_TRACKER`
 
 ### Okta App Naming
 Based on division and CMDB short name:
@@ -69,16 +70,17 @@ Based on division and CMDB short name:
 
 ### Required Fields
 ```yaml
-app_label: "Human-readable application name"
+cmdb_app_name: "Human-readable application name"
+division_name: "DIV1"  # Must be one of DIV1-DIV6
 cmdb_short_name: "ET"  # Uppercase alphanumeric only
 point_of_contact_email: "team@company.com"
 app_owner: "Team or person responsible"
 onboarding_snow_request: "SNOWREQ123456"
 ```
 
-### OAuth Configuration
+### App Configuration
 ```yaml
-oauth_config:
+app_config:
   create_2leg: true              # Client credentials flow
   create_3leg_frontend: true     # SPA with PKCE
   create_3leg_backend: false     # Web app with client secret
@@ -104,12 +106,12 @@ oauth_config:
 **Script**: `scripts/validate-yaml-config.sh`
 
 **Validates**:
-- ✅ Folder naming follows `DIVISIONNAME_APPNAME` pattern
+- ✅ Folder naming matches `division_name_cmdb_short_name` from YAML
 - ✅ Division name is one of `DIV1-DIV6`
-- ✅ Required fields present (app_label, cmdb_short_name, etc.)
+- ✅ Required fields present (cmdb_app_name, division_name, cmdb_short_name, etc.)
 - ✅ Email format validation
 - ✅ CMDB short name format (uppercase alphanumeric)
-- ✅ OAuth configuration rules
+- ✅ App configuration rules
 - ✅ Only one 3-leg type enabled at a time
 - ✅ SAML must be false (not implemented)
 - ✅ At least one OAuth type enabled
@@ -140,16 +142,17 @@ oauth_config:
 ### 1. App Creation (Ops Team)
 ```bash
 # Create app folder with proper naming
-mkdir apps/DIV1_NEW_APP
+mkdir apps/DIV1_NA_NEW_APP
 
 # Create YAML configuration
-cat > apps/DIV1_NEW_APP/app-config.yaml << EOF
-app_label: "New Application"
+cat > apps/DIV1_NA_NEW_APP/app-config.yaml << EOF
+cmdb_app_name: "New Application"
+division_name: "DIV1"
 cmdb_short_name: "NA"
 point_of_contact_email: "team@company.com"
 app_owner: "Development Team"
 onboarding_snow_request: "SNOWREQ123456"
-oauth_config:
+app_config:
   create_2leg: true
   create_3leg_frontend: true
   create_3leg_backend: false
@@ -161,13 +164,13 @@ oauth_config:
 EOF
 
 # Validate configuration
-./scripts/validate-yaml-config.sh apps/DIV1_NEW_APP
+./scripts/validate-yaml-config.sh apps/DIV1_NA_NEW_APP
 ```
 
 ### 2. .tfvars Generation (Ops Team)
 ```bash
 # Generate .tfvars files from YAML
-./scripts/validate-yaml-config.sh apps/DIV1_NEW_APP
+./scripts/validate-yaml-config.sh apps/DIV1_NA_NEW_APP
 
 # This creates:
 # - 2leg-api.tfvars (if create_2leg: true)
@@ -179,7 +182,7 @@ EOF
 ### 3. Terraform Generation (Engineering Team)
 ```bash
 # Copy .tfvars to modules repo
-cp apps/DIV1_NEW_APP/*.tfvars ../poc-okta-terraform-modules/
+cp apps/DIV1_NA_NEW_APP/*.tfvars ../poc-okta-terraform-modules/
 
 # Generate Terraform configuration
 ./scripts/generate-terraform.sh
@@ -240,15 +243,16 @@ terraform apply -var-file=2leg-api.tfvars -var-file=3leg-frontend.tfvars
 
 1. **Invalid folder name**
    ```
-   ❌ Invalid folder name: FINANCE_EXPENSE_TRACKER
-   Must follow pattern: DIVISIONNAME_APPNAME (where DIVISIONNAME is DIV1-DIV6)
+   ❌ Invalid folder name: DIV1_FINANCE_EXPENSE_TRACKER
+   Expected pattern: DIV1_ET_APPNAME
+   YAML division_name: DIV1
+   YAML cmdb_short_name: ET
    ```
-   **Solution**: Rename folder to `DIV1_FINANCE_EXPENSE_TRACKER`
+   **Solution**: Rename folder to `DIV1_ET_FINANCE_EXPENSE_TRACKER`
 
 2. **Invalid division name**
    ```
-   ❌ Invalid division name: DIV7
-   Must be one of: DIV1, DIV2, DIV3, DIV4, DIV5, DIV6
+   ❌ division_name must be one of DIV1-DIV6: DIV7
    ```
    **Solution**: Use a valid division name
 
@@ -269,4 +273,4 @@ terraform apply -var-file=2leg-api.tfvars -var-file=3leg-frontend.tfvars
 - **Ops Team**: Contact for YAML configuration issues
 - **Engineering Team**: Contact for Terraform/module issues
 - **Documentation**: Check this file and README.md
-- **Examples**: See `apps/DIV1_FINANCE_EXPENSE_TRACKER/` for reference 
+- **Examples**: See `apps/DIV1_ET_FINANCE_EXPENSE_TRACKER/` for reference 

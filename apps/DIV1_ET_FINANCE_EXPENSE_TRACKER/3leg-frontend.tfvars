@@ -21,7 +21,7 @@ group_name = "DIV1"_"ET"_SPA_ACCESS
 group_description = "Access group for Finance Expense Tracker Frontend"
 
 trusted_origin_name = "DIV1"_"ET"_SPA_ORIGIN
-trusted_origin_url = "https://div1-finance-expense-tracker.example.com"
+trusted_origin_url = "https://div1-et-finance-expense-tracker.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
@@ -33,4 +33,4 @@ app_group_assignments = [
 
 bookmark_name = "DIV1"_"ET"_SPA_BOOKMARK
 bookmark_label = "Finance Expense Tracker Frontend Admin"
-bookmark_url = "https://div1-finance-expense-tracker.example.com"
+bookmark_url = "https://div1-et-finance-expense-tracker.example.com"

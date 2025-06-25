@@ -6,30 +6,32 @@ This repository contains per-application Okta configurations managed by the Ops 
 
 ### 1. Create Application Configuration
 
-Create a folder following the naming convention: `DIVISIONNAME_APPNAME`
+Create a folder following the naming convention: `DIVISIONNAME_CMDBSHORTNAME_APPNAME`
 
 ```bash
 # Example: Create a finance expense tracker app for Division 1
-mkdir apps/DIV1_FINANCE_EXPENSE_TRACKER
+mkdir apps/DIV1_ET_FINANCE_EXPENSE_TRACKER
 ```
 
 **Naming Rules:**
 - Division name must be one of: `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
+- CMDB short name should be uppercase alphanumeric (e.g., `ET`)
 - App name should be descriptive and use underscores
-- Example: `DIV1_FINANCE_EXPENSE_TRACKER`
+- Example: `DIV1_ET_FINANCE_EXPENSE_TRACKER`
 
 ### 2. Create YAML Configuration
 
 Create `app-config.yaml` in your app folder:
 
 ```yaml
-app_label: "Finance Expense Tracker"
+cmdb_app_name: "Finance Expense Tracker"
+division_name: "DIV1"
 cmdb_short_name: "ET"  # Uppercase alphanumeric only
 point_of_contact_email: "finance-team@company.com"
 app_owner: "Finance IT Team"
 onboarding_snow_request: "SNOWREQ123456"
 
-oauth_config:
+app_config:
   create_2leg: true              # API service
   create_3leg_frontend: true     # SPA frontend
   create_3leg_backend: false     # Web backend
@@ -65,11 +67,11 @@ bookmarks:
 
 ```bash
 # Validate YAML configuration and generate .tfvars files
-./scripts/validate-yaml-config.sh apps/DIV1_FINANCE_EXPENSE_TRACKER
+./scripts/validate-yaml-config.sh apps/DIV1_ET_FINANCE_EXPENSE_TRACKER
 ```
 
 This will:
-- ✅ Validate folder naming (DIV1-DIV6)
+- ✅ Validate folder naming matches `division_name_cmdb_short_name` from YAML
 - ✅ Validate YAML configuration
 - ✅ Generate `.tfvars` files for enabled app types
 - ✅ Create proper naming for Okta resources
@@ -79,13 +81,19 @@ This will:
 The script generates these files based on your configuration:
 
 ```
-apps/DIV1_FINANCE_EXPENSE_TRACKER/
+apps/DIV1_ET_FINANCE_EXPENSE_TRACKER/
 ├── app-config.yaml          # Your configuration
 ├── 2leg-api.tfvars          # 2-leg API configuration
 └── 3leg-frontend.tfvars     # 3-leg frontend configuration
 ```
 
 ## Naming Conventions
+
+### Folder Naming
+- **Pattern**: `DIVISIONNAME_CMDBSHORTNAME_APPNAME`
+- **Division Names**: Must be one of `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
+- **CMDB Short Name**: Uppercase alphanumeric only
+- **Example**: `DIV1_ET_FINANCE_EXPENSE_TRACKER`
 
 ### Okta App Names
 Based on division and CMDB short name:
@@ -105,13 +113,15 @@ Based on division and CMDB short name:
 ## Validation Rules
 
 ### Folder Naming
-- Must follow pattern: `DIVISIONNAME_APPNAME`
-- Division must be one of: `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
-- Example: `DIV1_FINANCE_EXPENSE_TRACKER`
+- Must match pattern: `DIVISIONNAME_CMDBSHORTNAME_APPNAME`
+- Division name in YAML must match folder prefix
+- CMDB short name in YAML must match folder prefix
+- Example: `DIV1_ET_FINANCE_EXPENSE_TRACKER`
 
 ### YAML Configuration
-- ✅ Required fields: `app_label`, `cmdb_short_name`, `point_of_contact_email`, `app_owner`, `onboarding_snow_request`
+- ✅ Required fields: `cmdb_app_name`, `division_name`, `cmdb_short_name`, `point_of_contact_email`, `app_owner`, `onboarding_snow_request`
 - ✅ Email format validation
+- ✅ Division name: must be one of DIV1-DIV6
 - ✅ CMDB short name: uppercase alphanumeric only
 - ✅ Only one 3-leg type can be enabled at a time
 - ✅ At least one OAuth type must be enabled
@@ -134,7 +144,7 @@ Based on division and CMDB short name:
 Validates YAML configuration and generates `.tfvars` files.
 
 ```bash
-./scripts/validate-yaml-config.sh apps/DIV1_FINANCE_EXPENSE_TRACKER
+./scripts/validate-yaml-config.sh apps/DIV1_ET_FINANCE_EXPENSE_TRACKER
 ```
 
 ### `validate-all-apps.sh`
@@ -153,7 +163,7 @@ Lists all available applications.
 
 ## Examples
 
-See `apps/DIV1_FINANCE_EXPENSE_TRACKER/` for a complete example including:
+See `apps/DIV1_ET_FINANCE_EXPENSE_TRACKER/` for a complete example including:
 - YAML configuration
 - Generated `.tfvars` files
 - Trusted origins and bookmarks
@@ -168,18 +178,26 @@ For complete workflow documentation, see [WORKFLOW.md](WORKFLOW.md).
 
 1. **Invalid folder name**
    ```
-   ❌ Invalid folder name: FINANCE_EXPENSE_TRACKER
-   Must follow pattern: DIVISIONNAME_APPNAME (where DIVISIONNAME is DIV1-DIV6)
+   ❌ Invalid folder name: DIV1_FINANCE_EXPENSE_TRACKER
+   Expected pattern: DIV1_ET_APPNAME
+   YAML division_name: DIV1
+   YAML cmdb_short_name: ET
    ```
-   **Solution**: Rename to `DIV1_FINANCE_EXPENSE_TRACKER`
+   **Solution**: Rename to `DIV1_ET_FINANCE_EXPENSE_TRACKER`
 
-2. **Invalid CMDB short name**
+2. **Invalid division name**
+   ```
+   ❌ division_name must be one of DIV1-DIV6: DIV7
+   ```
+   **Solution**: Use a valid division name (DIV1-DIV6)
+
+3. **Invalid CMDB short name**
    ```
    ❌ cmdb_short_name must be uppercase alphanumeric only: et
    ```
    **Solution**: Use uppercase alphanumeric only (e.g., "ET")
 
-3. **Multiple 3-leg types**
+4. **Multiple 3-leg types**
    ```
    ❌ Only one 3-leg app type can be enabled at a time
    ```

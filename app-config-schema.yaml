@@ -3,16 +3,22 @@
 
 type: object
 required:
-  - app_label
+  - cmdb_app_name
+  - division_name
   - cmdb_short_name
   - point_of_contact_email
   - app_owner
   - onboarding_snow_request
-  - oauth_config
+  - app_config
 properties:
-  app_label:
+  cmdb_app_name:
     type: string
-    description: "Human-readable application label (CMDB App Name)"
+    description: "Human-readable application name (CMDB App Name)"
+  
+  division_name:
+    type: string
+    enum: ["DIV1", "DIV2", "DIV3", "DIV4", "DIV5", "DIV6"]
+    description: "Division name (must match folder name prefix)"
   
   cmdb_short_name:
     type: string
@@ -32,7 +38,7 @@ properties:
     type: string
     description: "ServiceNow onboarding request (ticket number or URL)"
   
-  oauth_config:
+  app_config:
     type: object
     required:
       - create_2leg
@@ -157,13 +163,14 @@ properties:
           default: false
 
 # Validation Rules:
-# 1. Folder name must match pattern: DIVISIONNAME_APPNAME (where DIVISIONNAME is one of DIV1-DIV6)
-# 2. Only one 3-leg app type can be true at a time
-# 3. 2-leg and 3-leg can be combined (hybrid)
-# 4. SAML must be false (not implemented)
-# 5. At least one OAuth type must be true
-# 6. Redirect URIs must be valid URLs
-# 7. Post-logout URIs must be valid URLs
-# 8. Trusted origin URLs must be valid URLs
-# 9. Bookmark URLs must be valid URLs
-# 10. CMDB short name must be uppercase alphanumeric only 
+# 1. Folder name must match pattern: DIVISIONNAME_CMDBSHORTNAME_APPNAME (where DIVISIONNAME is one of DIV1-DIV6)
+# 2. Division name in YAML must match folder name prefix
+# 3. Only one 3-leg app type can be true at a time
+# 4. 2-leg and 3-leg can be combined (hybrid)
+# 5. SAML must be false (not implemented)
+# 6. At least one OAuth type must be true
+# 7. Redirect URIs must be valid URLs
+# 8. Post-logout URIs must be valid URLs
+# 9. Trusted origin URLs must be valid URLs
+# 10. Bookmark URLs must be valid URLs
+# 11. CMDB short name must be uppercase alphanumeric only 
