@@ -1,0 +1,6 @@
+environment: dev
+app_config:
+  create_2leg: true
+  create_3leg_frontend: false
+  create_3leg_backend: false
+  create_3leg_native: false
