@@ -1,5 +1,5 @@
 parent_cmdb_name: "AD Application"
-division_name: "DIV3"
+division: "DIV3"
 cmdb_app_short_name: "AD"
 team_dl: "div3-team@company.com"
 requested_by: "aadyasri@company.com" 
