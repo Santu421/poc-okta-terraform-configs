@@ -1,6 +1,201 @@
 # Okta Terraform Configurations
 
-This repository contains per-app, per-policy, and per-group configurations for Okta resources. The pipeline automatically composes these configurations with modules from `poc-okta-terraform-modules` at build time.
+This repository contains per-application Okta configurations managed by the Ops team. Each application is defined using YAML configuration files that are validated and converted to Terraform variables.
+
+## Quick Start
+
+### 1. Create Application Configuration
+
+Create a folder following the naming convention: `DIVISIONNAME_APPNAME`
+
+```bash
+# Example: Create a finance expense tracker app for Division 1
+mkdir apps/DIV1_FINANCE_EXPENSE_TRACKER
+```
+
+**Naming Rules:**
+- Division name must be one of: `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
+- App name should be descriptive and use underscores
+- Example: `DIV1_FINANCE_EXPENSE_TRACKER`
+
+### 2. Create YAML Configuration
+
+Create `app-config.yaml` in your app folder:
+
+```yaml
+app_label: "Finance Expense Tracker"
+cmdb_short_name: "ET"  # Uppercase alphanumeric only
+point_of_contact_email: "finance-team@company.com"
+app_owner: "Finance IT Team"
+onboarding_snow_request: "SNOWREQ123456"
+
+oauth_config:
+  create_2leg: true              # API service
+  create_3leg_frontend: true     # SPA frontend
+  create_3leg_backend: false     # Web backend
+  create_3leg_native: false      # Native app
+  create_saml: false             # Not implemented yet
+  
+  scopes:
+    - "openid"
+    - "profile"
+    - "email"
+    - "finance:read"
+    - "finance:write"
+  
+  redirect_uris:
+    - "https://finance-expense.company.com/callback"
+    - "http://localhost:3000/callback"
+  
+  post_logout_uris:
+    - "https://finance-expense.company.com/logout"
+
+trusted_origins:
+  - name: "Finance Frontend"
+    url: "https://finance-expense.company.com"
+    scopes: ["CORS", "REDIRECT"]
+
+bookmarks:
+  - name: "Finance Admin"
+    label: "Finance Expense Tracker - Admin"
+    url: "https://finance-expense.company.com/admin"
+```
+
+### 3. Validate and Generate
+
+```bash
+# Validate YAML configuration and generate .tfvars files
+./scripts/validate-yaml-config.sh apps/DIV1_FINANCE_EXPENSE_TRACKER
+```
+
+This will:
+- ✅ Validate folder naming (DIV1-DIV6)
+- ✅ Validate YAML configuration
+- ✅ Generate `.tfvars` files for enabled app types
+- ✅ Create proper naming for Okta resources
+
+### 4. Generated Files
+
+The script generates these files based on your configuration:
+
+```
+apps/DIV1_FINANCE_EXPENSE_TRACKER/
+├── app-config.yaml          # Your configuration
+├── 2leg-api.tfvars          # 2-leg API configuration
+└── 3leg-frontend.tfvars     # 3-leg frontend configuration
+```
+
+## Naming Conventions
+
+### Okta App Names
+Based on division and CMDB short name:
+
+| App Type | Pattern | Example |
+|----------|---------|---------|
+| 2-leg API | `DIVISIONNAME_CMDBNAME_API_SVCS` | `DIV1_ET_API_SVCS` |
+| 3-leg Backend | `DIVISIONNAME_CMDBNAME_OIDC_WA` | `DIV1_ET_OIDC_WA` |
+| 3-leg Native | `DIVISIONNAME_CMDBNAME_OIDC_NA` | `DIV1_ET_OIDC_NA` |
+| 3-leg Frontend | `DIVISIONNAME_CMDBNAME_OIDC_SPA` | `DIV1_ET_OIDC_SPA` |
+
+### CMDB Short Name
+- **Format**: Uppercase alphanumeric only
+- **Purpose**: Short identifier for the application
+- **Example**: `ET` for "Finance Expense Tracker"
+
+## Validation Rules
+
+### Folder Naming
+- Must follow pattern: `DIVISIONNAME_APPNAME`
+- Division must be one of: `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
+- Example: `DIV1_FINANCE_EXPENSE_TRACKER`
+
+### YAML Configuration
+- ✅ Required fields: `app_label`, `cmdb_short_name`, `point_of_contact_email`, `app_owner`, `onboarding_snow_request`
+- ✅ Email format validation
+- ✅ CMDB short name: uppercase alphanumeric only
+- ✅ Only one 3-leg type can be enabled at a time
+- ✅ At least one OAuth type must be enabled
+- ✅ SAML must be false (not implemented yet)
+
+### Allowed Combinations
+| Combination | 2-leg | 3-leg Frontend | 3-leg Backend | 3-leg Native |
+|-------------|-------|----------------|---------------|--------------|
+| API Only | ✅ | ❌ | ❌ | ❌ |
+| Frontend Only | ❌ | ✅ | ❌ | ❌ |
+| Backend Only | ❌ | ❌ | ✅ | ❌ |
+| Native Only | ❌ | ❌ | ❌ | ✅ |
+| API + Frontend | ✅ | ✅ | ❌ | ❌ |
+| API + Backend | ✅ | ❌ | ✅ | ❌ |
+| API + Native | ✅ | ❌ | ❌ | ✅ |
+
+## Scripts
+
+### `validate-yaml-config.sh`
+Validates YAML configuration and generates `.tfvars` files.
+
+```bash
+./scripts/validate-yaml-config.sh apps/DIV1_FINANCE_EXPENSE_TRACKER
+```
+
+### `validate-all-apps.sh`
+Validates all applications in the `apps/` directory.
+
+```bash
+./scripts/validate-all-apps.sh
+```
+
+### `list-apps.sh`
+Lists all available applications.
+
+```bash
+./scripts/list-apps.sh
+```
+
+## Examples
+
+See `apps/DIV1_FINANCE_EXPENSE_TRACKER/` for a complete example including:
+- YAML configuration
+- Generated `.tfvars` files
+- Trusted origins and bookmarks
+
+## Workflow
+
+For complete workflow documentation, see [WORKFLOW.md](WORKFLOW.md).
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Invalid folder name**
+   ```
+   ❌ Invalid folder name: FINANCE_EXPENSE_TRACKER
+   Must follow pattern: DIVISIONNAME_APPNAME (where DIVISIONNAME is DIV1-DIV6)
+   ```
+   **Solution**: Rename to `DIV1_FINANCE_EXPENSE_TRACKER`
+
+2. **Invalid CMDB short name**
+   ```
+   ❌ cmdb_short_name must be uppercase alphanumeric only: et
+   ```
+   **Solution**: Use uppercase alphanumeric only (e.g., "ET")
+
+3. **Multiple 3-leg types**
+   ```
+   ❌ Only one 3-leg app type can be enabled at a time
+   ```
+   **Solution**: Enable only one of frontend/backend/native
+
+## Team Responsibilities
+
+- **Ops Team**: Creates YAML configurations, validates, generates `.tfvars`
+- **Engineering Team**: Maintains Terraform modules, enforces business rules
+
+## Future Enhancements
+
+- [ ] SAML app support
+- [ ] Multi-environment support (DEV, SI, QA, UAT, PROD)
+- [ ] Automated deployment pipelines
+- [ ] Advanced validation rules
 
 ## Architecture
 
