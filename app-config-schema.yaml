@@ -1,4 +1,4 @@
-# Okta App Configuration Schema - Basic Version
+# Okta App Configuration Schema - Enhanced Version
 # This schema defines the structure and validation rules for app configurations
 
 type: object
@@ -68,10 +68,101 @@ properties:
           type: string
         description: "OAuth scopes to request"
         default: []
+      
+      # Redirect URIs (single list for the active OAuth app)
+      redirect_uris:
+        type: array
+        items:
+          type: string
+          format: uri
+        description: "Redirect URIs for the OAuth app"
+        default: []
+      
+      # Post-logout URIs (single list for the active OAuth app)
+      post_logout_uris:
+        type: array
+        items:
+          type: string
+          format: uri
+        description: "Post-logout redirect URIs for the OAuth app"
+        default: []
+  
+  # Trusted Origins configuration
+  trusted_origins:
+    type: array
+    description: "List of trusted origins for CORS and redirect"
+    items:
+      type: object
+      required:
+        - name
+        - url
+      properties:
+        name:
+          type: string
+          description: "Trusted origin name"
+        url:
+          type: string
+          format: uri
+          description: "Trusted origin URL"
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: ["CORS", "REDIRECT"]
+          description: "Trusted origin scopes"
+          default: ["CORS"]
+        status:
+          type: string
+          enum: ["ACTIVE", "INACTIVE"]
+          description: "Trusted origin status"
+          default: "ACTIVE"
+  
+  # Bookmarks configuration
+  bookmarks:
+    type: array
+    description: "List of bookmark apps for admin access"
+    items:
+      type: object
+      required:
+        - name
+        - label
+        - url
+      properties:
+        name:
+          type: string
+          description: "Bookmark app name"
+        label:
+          type: string
+          description: "Bookmark app display label"
+        url:
+          type: string
+          format: uri
+          description: "Bookmark app URL"
+        status:
+          type: string
+          enum: ["ACTIVE", "INACTIVE"]
+          description: "Bookmark app status"
+          default: "ACTIVE"
+        auto_submit_toolbar:
+          type: boolean
+          description: "Auto submit toolbar"
+          default: false
+        hide_ios:
+          type: boolean
+          description: "Hide from iOS"
+          default: false
+        hide_web:
+          type: boolean
+          description: "Hide from web"
+          default: false
 
 # Validation Rules:
 # 1. Folder name must match pattern: DIVISIONNAME_APPNAME
 # 2. Only one 3-leg app type can be true at a time
 # 3. 2-leg and 3-leg can be combined (hybrid)
 # 4. SAML must be false (not implemented)
-# 5. At least one OAuth type must be true 
+# 5. At least one OAuth type must be true
+# 6. Redirect URIs must be valid URLs
+# 7. Post-logout URIs must be valid URLs
+# 8. Trusted origin URLs must be valid URLs
+# 9. Bookmark URLs must be valid URLs 

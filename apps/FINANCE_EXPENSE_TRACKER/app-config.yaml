@@ -29,4 +29,55 @@ oauth_config:
     - "profile"
     - "email"
     - "finance:read"
-    - "finance:write" 
+    - "finance:write"
+    - "finance:admin"
+  
+  # Redirect URIs (single list for the active OAuth app)
+  redirect_uris:
+    - "https://finance-expense.company.com/callback"
+    - "https://finance-expense.company.com/silent-renew"
+    - "https://finance-api.company.com/callback"
+    - "http://localhost:3000/callback"  # Development
+    - "com.company.finance://callback"
+  
+  # Post-logout URIs (single list for the active OAuth app)
+  post_logout_uris:
+    - "https://finance-expense.company.com/logout"
+    - "https://finance-expense.company.com/signout"
+    - "https://finance-api.company.com/logout"
+    - "com.company.finance://logout"
+
+# Trusted Origins configuration
+trusted_origins:
+  - name: "Finance Expense Tracker Frontend"
+    url: "https://finance-expense.company.com"
+    scopes: ["CORS", "REDIRECT"]
+    status: "ACTIVE"
+  
+  - name: "Finance Expense Tracker API"
+    url: "https://finance-api.company.com"
+    scopes: ["CORS", "REDIRECT"]
+    status: "ACTIVE"
+  
+  - name: "Finance Expense Tracker Development"
+    url: "http://localhost:3000"
+    scopes: ["CORS", "REDIRECT"]
+    status: "ACTIVE"
+
+# Bookmarks configuration
+bookmarks:
+  - name: "Finance Expense Tracker Admin"
+    label: "Finance Expense Tracker - Admin Portal"
+    url: "https://finance-expense.company.com/admin"
+    status: "ACTIVE"
+    auto_submit_toolbar: false
+    hide_ios: false
+    hide_web: false
+  
+  - name: "Finance Expense Tracker Reports"
+    label: "Finance Expense Tracker - Reports"
+    url: "https://finance-expense.company.com/reports"
+    status: "ACTIVE"
+    auto_submit_toolbar: false
+    hide_ios: false
+    hide_web: false 
