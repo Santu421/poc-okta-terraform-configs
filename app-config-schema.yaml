@@ -3,21 +3,21 @@
 
 type: object
 required:
-  - app_name
   - app_label
+  - cmdb_short_name
   - point_of_contact_email
   - app_owner
   - onboarding_snow_request
   - oauth_config
 properties:
-  app_name:
-    type: string
-    pattern: '^[A-Z0-9_]+$'
-    description: "Application name in UPPERCASE with underscores (e.g., FINANCE_EXPENSE_TRACKER)"
-  
   app_label:
     type: string
-    description: "Human-readable application label"
+    description: "Human-readable application label (CMDB App Name)"
+  
+  cmdb_short_name:
+    type: string
+    pattern: '^[A-Z0-9]+$'
+    description: "CMDB short name (e.g., ET for Finance Expense Tracker)"
   
   point_of_contact_email:
     type: string
@@ -157,7 +157,7 @@ properties:
           default: false
 
 # Validation Rules:
-# 1. Folder name must match pattern: DIVISIONNAME_APPNAME
+# 1. Folder name must match pattern: DIVISIONNAME_APPNAME (where DIVISIONNAME is one of DIV1-DIV6)
 # 2. Only one 3-leg app type can be true at a time
 # 3. 2-leg and 3-leg can be combined (hybrid)
 # 4. SAML must be false (not implemented)
@@ -165,4 +165,5 @@ properties:
 # 6. Redirect URIs must be valid URLs
 # 7. Post-logout URIs must be valid URLs
 # 8. Trusted origin URLs must be valid URLs
-# 9. Bookmark URLs must be valid URLs 
+# 9. Bookmark URLs must be valid URLs
+# 10. CMDB short name must be uppercase alphanumeric only 

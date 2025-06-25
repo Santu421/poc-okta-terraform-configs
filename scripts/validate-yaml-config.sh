@@ -16,151 +16,113 @@ show_usage() {
     echo "  $0 apps/FINANCE_EXPENSE_TRACKER"
 }
 
-# Function to validate folder name pattern
+# Function to validate folder name follows DIVISIONNAME_APPNAME pattern
 validate_folder_name() {
-    local folder_name="$1"
+    local folder_path="$1"
     
     # Extract folder name from path
-    local app_name=$(basename "$folder_name")
+    local folder_name=$(basename "$folder_path")
     
-    # Check pattern: DIVISIONNAME_APPNAME (uppercase, underscores)
-    if [[ ! "$app_name" =~ ^[A-Z0-9_]+$ ]]; then
-        echo "❌ Invalid folder name: $app_name"
-        echo "   Must follow pattern: DIVISIONNAME_APPNAME (uppercase, underscores only)"
+    # Check if folder name matches DIVISIONNAME_APPNAME pattern
+    if [[ ! "$folder_name" =~ ^(DIV[1-6])_[A-Z0-9_]+$ ]]; then
+        echo "❌ Invalid folder name: $folder_name"
+        echo "   Must follow pattern: DIVISIONNAME_APPNAME (where DIVISIONNAME is DIV1-DIV6)"
+        echo "   Example: DIV1_FINANCE_EXPENSE_TRACKER"
         return 1
     fi
     
-    # Check for at least one underscore
-    if [[ ! "$app_name" =~ _ ]]; then
-        echo "❌ Invalid folder name: $app_name"
-        echo "   Must contain at least one underscore (DIVISIONNAME_APPNAME)"
+    # Extract division name
+    local division_name=$(echo "$folder_name" | cut -d'_' -f1)
+    
+    # Validate division name is one of DIV1-DIV6
+    if [[ ! "$division_name" =~ ^DIV[1-6]$ ]]; then
+        echo "❌ Invalid division name: $division_name"
+        echo "   Must be one of: DIV1, DIV2, DIV3, DIV4, DIV5, DIV6"
         return 1
     fi
     
-    echo "✅ Folder name validation passed: $app_name"
+    echo "✅ Folder name validation passed: $folder_name"
+    echo "   Division: $division_name"
     return 0
 }
 
 # Function to validate YAML configuration
 validate_yaml_config() {
     local config_file="$1"
-    local app_name="$2"
-    
-    if [[ ! -f "$config_file" ]]; then
-        echo "❌ Configuration file not found: $config_file"
-        return 1
-    fi
     
     echo "🔍 Validating YAML configuration..."
     
     # Check if yq is available
     if ! command -v yq &> /dev/null; then
-        echo "⚠️  yq not found. Installing basic validation..."
-        validate_yaml_basic "$config_file"
-        return 0
+        echo "❌ yq is required for YAML validation but not installed"
+        echo "   Install yq: https://github.com/mikefarah/yq"
+        return 1
+    fi
+    
+    # Check if file exists
+    if [[ ! -f "$config_file" ]]; then
+        echo "❌ YAML configuration file not found: $config_file"
+        return 1
     fi
     
     # Validate required fields
-    local app_name_yaml=$(yq eval '.app_name' "$config_file")
-    local app_label=$(yq eval '.app_label' "$config_file")
-    local point_of_contact_email=$(yq eval '.point_of_contact_email' "$config_file")
-    local app_owner=$(yq eval '.app_owner' "$config_file")
-    local onboarding_snow_request=$(yq eval '.onboarding_snow_request' "$config_file")
+    local required_fields=("app_label" "cmdb_short_name" "point_of_contact_email" "app_owner" "onboarding_snow_request")
     
-    if [[ "$app_name_yaml" == "null" ]] || [[ -z "$app_name_yaml" ]]; then
-        echo "❌ Missing required field: app_name"
+    for field in "${required_fields[@]}"; do
+        local value=$(yq eval ".$field" "$config_file" 2>/dev/null)
+        if [[ -z "$value" || "$value" == "null" ]]; then
+            echo "❌ Required field missing: $field"
+            return 1
+        fi
+    done
+    
+    # Validate email format
+    local email=$(yq eval '.point_of_contact_email' "$config_file")
+    if [[ ! "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+        echo "❌ point_of_contact_email is not a valid email address: $email"
         return 1
     fi
     
-    if [[ "$app_label" == "null" ]] || [[ -z "$app_label" ]]; then
-        echo "❌ Missing required field: app_label"
-        return 1
-    fi
-    
-    if [[ "$point_of_contact_email" == "null" ]] || [[ -z "$point_of_contact_email" ]]; then
-        echo "❌ Missing required field: point_of_contact_email"
-        return 1
-    fi
-    # Email format validation
-    if ! [[ "$point_of_contact_email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-        echo "❌ point_of_contact_email is not a valid email address: $point_of_contact_email"
-        return 1
-    fi
-    
-    if [[ "$app_owner" == "null" ]] || [[ -z "$app_owner" ]]; then
-        echo "❌ Missing required field: app_owner"
-        return 1
-    fi
-    
-    if [[ "$onboarding_snow_request" == "null" ]] || [[ -z "$onboarding_snow_request" ]]; then
-        echo "❌ Missing required field: onboarding_snow_request"
-        return 1
-    fi
-    
-    # Validate app_name matches folder name
-    if [[ "$app_name_yaml" != "$app_name" ]]; then
-        echo "❌ app_name in YAML ($app_name_yaml) doesn't match folder name ($app_name)"
+    # Validate CMDB short name format (uppercase alphanumeric only)
+    local cmdb_short_name=$(yq eval '.cmdb_short_name' "$config_file")
+    if [[ ! "$cmdb_short_name" =~ ^[A-Z0-9]+$ ]]; then
+        echo "❌ cmdb_short_name must be uppercase alphanumeric only: $cmdb_short_name"
         return 1
     fi
     
     # Validate OAuth configuration
-    validate_oauth_config "$config_file"
-    
-    echo "✅ YAML configuration validation passed"
-    return 0
-}
-
-# Function to validate OAuth configuration
-validate_oauth_config() {
-    local config_file="$1"
-    
-    # Get OAuth configuration values
     local create_2leg=$(yq eval '.oauth_config.create_2leg' "$config_file")
     local create_3leg_frontend=$(yq eval '.oauth_config.create_3leg_frontend' "$config_file")
     local create_3leg_backend=$(yq eval '.oauth_config.create_3leg_backend' "$config_file")
     local create_3leg_native=$(yq eval '.oauth_config.create_3leg_native' "$config_file")
     local create_saml=$(yq eval '.oauth_config.create_saml' "$config_file")
     
-    # Check for required fields
-    if [[ "$create_2leg" == "null" ]] || [[ "$create_3leg_frontend" == "null" ]] || \
-       [[ "$create_3leg_backend" == "null" ]] || [[ "$create_3leg_native" == "null" ]] || \
-       [[ "$create_saml" == "null" ]]; then
-        echo "❌ Missing required OAuth configuration fields"
-        return 1
-    fi
-    
-    # Rule 1: SAML must be false (not implemented)
-    if [[ "$create_saml" == "true" ]]; then
-        echo "❌ SAML apps are not implemented yet. create_saml must be false"
-        return 1
-    fi
-    
-    # Rule 2: At least one OAuth type must be true
-    local oauth_count=0
-    [[ "$create_2leg" == "true" ]] && ((oauth_count++))
-    [[ "$create_3leg_frontend" == "true" ]] && ((oauth_count++))
-    [[ "$create_3leg_backend" == "true" ]] && ((oauth_count++))
-    [[ "$create_3leg_native" == "true" ]] && ((oauth_count++))
-    
-    if [[ $oauth_count -eq 0 ]]; then
-        echo "❌ At least one OAuth app type must be enabled"
-        return 1
-    fi
-    
-    # Rule 3: Only one 3-leg app type can be true at a time
+    # Count enabled 3-leg types
     local three_leg_count=0
     [[ "$create_3leg_frontend" == "true" ]] && ((three_leg_count++))
     [[ "$create_3leg_backend" == "true" ]] && ((three_leg_count++))
     [[ "$create_3leg_native" == "true" ]] && ((three_leg_count++))
     
+    # Validate only one 3-leg type is enabled
     if [[ $three_leg_count -gt 1 ]]; then
         echo "❌ Only one 3-leg app type can be enabled at a time"
-        echo "   Current: frontend=$create_3leg_frontend, backend=$create_3leg_backend, native=$create_3leg_native"
+        echo "   Frontend: $create_3leg_frontend"
+        echo "   Backend: $create_3leg_backend"
+        echo "   Native: $create_3leg_native"
         return 1
     fi
     
-    # Rule 4: 2-leg and 3-leg can be combined (hybrid)
-    # This is allowed, so no validation needed
+    # Validate SAML is false (not implemented)
+    if [[ "$create_saml" == "true" ]]; then
+        echo "❌ SAML is not implemented yet. Set create_saml: false"
+        return 1
+    fi
+    
+    # Validate at least one OAuth type is enabled
+    if [[ "$create_2leg" != "true" && "$create_3leg_frontend" != "true" && "$create_3leg_backend" != "true" && "$create_3leg_native" != "true" ]]; then
+        echo "❌ At least one OAuth app type must be enabled"
+        return 1
+    fi
     
     echo "✅ OAuth configuration validation passed"
     echo "   - 2-leg: $create_2leg"
@@ -169,6 +131,7 @@ validate_oauth_config() {
     echo "   - 3-leg native: $create_3leg_native"
     echo "   - SAML: $create_saml"
     
+    echo "✅ YAML configuration validation passed"
     return 0
 }
 
@@ -211,9 +174,15 @@ generate_tfvars_from_yaml() {
     
     echo "🔧 Generating .tfvars files from YAML configuration..."
     
-    # Get app name and label
-    local app_name=$(yq eval '.app_name' "$config_file")
+    # Use folder name as technical app name
+    local app_name=$(basename "$app_folder")
+    # Get app_label (CMDB name) from YAML
     local app_label=$(yq eval '.app_label' "$config_file")
+    # Get CMDB short name from YAML
+    local cmdb_short_name=$(yq eval '.cmdb_short_name' "$config_file")
+    
+    # Extract division name from folder name
+    local division_name=$(echo "$app_name" | cut -d'_' -f1)
     
     # Get OAuth configuration
     local create_2leg=$(yq eval '.oauth_config.create_2leg' "$config_file")
@@ -221,15 +190,11 @@ generate_tfvars_from_yaml() {
     local create_3leg_backend=$(yq eval '.oauth_config.create_3leg_backend' "$config_file")
     local create_3leg_native=$(yq eval '.oauth_config.create_3leg_native' "$config_file")
     
-    # Get redirect URIs from YAML
-    local frontend_redirect_uris=$(yq eval '.oauth_config.redirect_uris.frontend[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
-    local backend_redirect_uris=$(yq eval '.oauth_config.redirect_uris.backend[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
-    local native_redirect_uris=$(yq eval '.oauth_config.redirect_uris.native[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+    # Get redirect URIs from YAML (single array)
+    local redirect_uris=$(yq eval '.oauth_config.redirect_uris[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
     
-    # Get post-logout URIs from YAML
-    local frontend_post_logout_uris=$(yq eval '.oauth_config.post_logout_uris.frontend[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
-    local backend_post_logout_uris=$(yq eval '.oauth_config.post_logout_uris.backend[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
-    local native_post_logout_uris=$(yq eval '.oauth_config.post_logout_uris.native[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+    # Get post-logout URIs from YAML (single array)
+    local post_logout_uris=$(yq eval '.oauth_config.post_logout_uris[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
     
     # Get trusted origins from YAML
     local trusted_origins=$(yq eval '.trusted_origins[]?' "$config_file" 2>/dev/null)
@@ -240,22 +205,22 @@ generate_tfvars_from_yaml() {
     # Generate .tfvars files for each enabled app type
     if [[ "$create_2leg" == "true" ]]; then
         echo "📝 Generating 2-leg API configuration..."
-        generate_2leg_tfvars "$app_folder" "$app_name" "$app_label" "$trusted_origins" "$bookmarks"
+        generate_2leg_tfvars "$app_folder" "$app_name" "$app_label" "$division_name" "$cmdb_short_name" "$trusted_origins" "$bookmarks"
     fi
     
     if [[ "$create_3leg_frontend" == "true" ]]; then
         echo "📝 Generating 3-leg frontend configuration..."
-        generate_3leg_frontend_tfvars "$app_folder" "$app_name" "$app_label" "$frontend_redirect_uris" "$frontend_post_logout_uris" "$trusted_origins" "$bookmarks"
+        generate_3leg_frontend_tfvars "$app_folder" "$app_name" "$app_label" "$division_name" "$cmdb_short_name" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
     fi
     
     if [[ "$create_3leg_backend" == "true" ]]; then
         echo "📝 Generating 3-leg backend configuration..."
-        generate_3leg_backend_tfvars "$app_folder" "$app_name" "$app_label" "$backend_redirect_uris" "$backend_post_logout_uris" "$trusted_origins" "$bookmarks"
+        generate_3leg_backend_tfvars "$app_folder" "$app_name" "$app_label" "$division_name" "$cmdb_short_name" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
     fi
     
     if [[ "$create_3leg_native" == "true" ]]; then
         echo "📝 Generating 3-leg native configuration..."
-        generate_3leg_native_tfvars "$app_folder" "$app_name" "$app_label" "$native_redirect_uris" "$native_post_logout_uris" "$trusted_origins" "$bookmarks"
+        generate_3leg_native_tfvars "$app_folder" "$app_name" "$app_label" "$division_name" "$cmdb_short_name" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
     fi
     
     echo "✅ .tfvars files generated successfully"
@@ -266,15 +231,20 @@ generate_2leg_tfvars() {
     local app_folder="$1"
     local app_name="$2"
     local app_label="$3"
-    local trusted_origins="$4"
-    local bookmarks="$5"
+    local division_name="$4"
+    local cmdb_short_name="$5"
+    local trusted_origins="$6"
+    local bookmarks="$7"
+    
+    # Convert app_name to lowercase and replace underscores with hyphens
+    local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
     
     # Format redirect URIs (2-leg doesn't use redirect URIs)
     local redirect_uris="[]"
     
     # Format trusted origins
-    local trusted_origin_name="$app_name-2leg-origin"
-    local trusted_origin_url="https://api.${app_name,,}.example.com"
+    local trusted_origin_name="$division_name"_"$cmdb_short_name"_API_ORIGIN
+    local trusted_origin_url="https://api.$app_name_lower.example.com"
     local trusted_origin_scopes='["CORS"]'
     
     # Use first trusted origin from YAML if available
@@ -285,9 +255,9 @@ generate_2leg_tfvars() {
     fi
     
     # Format bookmarks
-    local bookmark_name="$app_name-2leg-bookmark"
+    local bookmark_name="$division_name"_"$cmdb_short_name"_API_BOOKMARK
     local bookmark_label="$app_label API Admin"
-    local bookmark_url="https://admin.${app_name,,}.example.com"
+    local bookmark_url="https://admin.$app_name_lower.example.com"
     
     # Use first bookmark from YAML if available
     if [[ -n "$bookmarks" ]]; then
@@ -298,8 +268,8 @@ generate_2leg_tfvars() {
     
     cat > "$app_folder/2leg-api.tfvars" << EOF
 # 2-leg API Configuration for $app_label
-app_name = "$app_name-2leg"
-app_label = "$app_label API"
+app_name = "$division_name"_"$cmdb_short_name"_API_SVCS
+app_label = "$division_name"_"$cmdb_short_name"_API_SVCS
 grant_types = ["client_credentials"]
 redirect_uris = $redirect_uris
 response_types = []
@@ -310,7 +280,7 @@ hide_web = true
 issuer_mode = "ORG_URL"
 pkce_required = null
 
-group_name = "$app_name-2leg-access"
+group_name = "$division_name"_"$cmdb_short_name"_API_ACCESS
 group_description = "Access group for $app_label API"
 
 trusted_origin_name = "$trusted_origin_name"
@@ -319,8 +289,8 @@ trusted_origin_scopes = $trusted_origin_scopes
 
 app_group_assignments = [
   {
-    app_name = "$app_name-2leg"
-    group_name = "$app_name-2leg-access"
+    app_name = "$division_name"_"$cmdb_short_name"_API_SVCS
+    group_name = "$division_name"_"$cmdb_short_name"_API_ACCESS
   }
 ]
 
@@ -335,18 +305,29 @@ generate_3leg_frontend_tfvars() {
     local app_folder="$1"
     local app_name="$2"
     local app_label="$3"
-    local frontend_redirect_uris="$4"
-    local frontend_post_logout_uris="$5"
-    local trusted_origins="$6"
-    local bookmarks="$7"
+    local division_name="$4"
+    local cmdb_short_name="$5"
+    local redirect_uris="$6"
+    local post_logout_uris="$7"
+    local trusted_origins="$8"
+    local bookmarks="$9"
+    
+    # Convert app_name to lowercase and replace underscores with hyphens
+    local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    
+    # Format redirect URIs for Terraform
+    local formatted_redirect_uris=""
+    if [[ -n "$redirect_uris" ]]; then
+        formatted_redirect_uris=$(echo "$redirect_uris" | sed 's/ /",\n  "/g' | sed 's/^/  "/' | sed 's/$/"/')
+    fi
     
     cat > "$app_folder/3leg-frontend.tfvars" << EOF
 # 3-leg Frontend Configuration for $app_label
-app_name = "$app_name-3leg-frontend"
-app_label = "$app_label Frontend"
+app_name = "$division_name"_"$cmdb_short_name"_OIDC_SPA
+app_label = "$division_name"_"$cmdb_short_name"_OIDC_SPA
 grant_types = ["authorization_code", "refresh_token"]
 redirect_uris = [
-  $frontend_redirect_uris
+$formatted_redirect_uris
 ]
 response_types = ["code"]
 token_endpoint_auth_method = "none"
@@ -356,23 +337,23 @@ hide_ios = false
 hide_web = false
 issuer_mode = "ORG_URL"
 
-group_name = "$app_name-3leg-frontend-access"
+group_name = "$division_name"_"$cmdb_short_name"_SPA_ACCESS
 group_description = "Access group for $app_label Frontend"
 
-trusted_origin_name = "$app_name-3leg-frontend-origin"
-trusted_origin_url = "https://$app_name.lower().replace('_', '-').example.com"
+trusted_origin_name = "$division_name"_"$cmdb_short_name"_SPA_ORIGIN
+trusted_origin_url = "https://$app_name_lower.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "$app_name-3leg-frontend"
-    group_name = "$app_name-3leg-frontend-access"
+    app_name = "$division_name"_"$cmdb_short_name"_OIDC_SPA
+    group_name = "$division_name"_"$cmdb_short_name"_SPA_ACCESS
   }
 ]
 
-bookmark_name = "$app_name-3leg-frontend-bookmark"
+bookmark_name = "$division_name"_"$cmdb_short_name"_SPA_BOOKMARK
 bookmark_label = "$app_label Frontend Admin"
-bookmark_url = "https://$app_name.lower().replace('_', '-').example.com"
+bookmark_url = "https://$app_name_lower.example.com"
 EOF
 }
 
@@ -381,18 +362,29 @@ generate_3leg_backend_tfvars() {
     local app_folder="$1"
     local app_name="$2"
     local app_label="$3"
-    local backend_redirect_uris="$4"
-    local backend_post_logout_uris="$5"
-    local trusted_origins="$6"
-    local bookmarks="$7"
+    local division_name="$4"
+    local cmdb_short_name="$5"
+    local redirect_uris="$6"
+    local post_logout_uris="$7"
+    local trusted_origins="$8"
+    local bookmarks="$9"
+    
+    # Convert app_name to lowercase and replace underscores with hyphens
+    local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    
+    # Format redirect URIs for Terraform
+    local formatted_redirect_uris=""
+    if [[ -n "$redirect_uris" ]]; then
+        formatted_redirect_uris=$(echo "$redirect_uris" | sed 's/ /",\n  "/g' | sed 's/^/  "/' | sed 's/$/"/')
+    fi
     
     cat > "$app_folder/3leg-backend.tfvars" << EOF
 # 3-leg Backend Configuration for $app_label
-app_name = "$app_name-3leg-backend"
-app_label = "$app_label Backend"
+app_name = "$division_name"_"$cmdb_short_name"_OIDC_WA
+app_label = "$division_name"_"$cmdb_short_name"_OIDC_WA
 grant_types = ["authorization_code", "refresh_token"]
 redirect_uris = [
-  $backend_redirect_uris
+$formatted_redirect_uris
 ]
 response_types = ["code"]
 token_endpoint_auth_method = "client_secret_basic"
@@ -402,23 +394,23 @@ hide_ios = false
 hide_web = false
 issuer_mode = "ORG_URL"
 
-group_name = "$app_name-3leg-backend-access"
+group_name = "$division_name"_"$cmdb_short_name"_WA_ACCESS
 group_description = "Access group for $app_label Backend"
 
-trusted_origin_name = "$app_name-3leg-backend-origin"
-trusted_origin_url = "https://$app_name.lower().replace('_', '-').example.com"
+trusted_origin_name = "$division_name"_"$cmdb_short_name"_WA_ORIGIN
+trusted_origin_url = "https://$app_name_lower.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "$app_name-3leg-backend"
-    group_name = "$app_name-3leg-backend-access"
+    app_name = "$division_name"_"$cmdb_short_name"_OIDC_WA
+    group_name = "$division_name"_"$cmdb_short_name"_WA_ACCESS
   }
 ]
 
-bookmark_name = "$app_name-3leg-backend-bookmark"
+bookmark_name = "$division_name"_"$cmdb_short_name"_WA_BOOKMARK
 bookmark_label = "$app_label Backend Admin"
-bookmark_url = "https://$app_name.lower().replace('_', '-').example.com"
+bookmark_url = "https://$app_name_lower.example.com"
 EOF
 }
 
@@ -427,44 +419,55 @@ generate_3leg_native_tfvars() {
     local app_folder="$1"
     local app_name="$2"
     local app_label="$3"
-    local native_redirect_uris="$4"
-    local native_post_logout_uris="$5"
-    local trusted_origins="$6"
-    local bookmarks="$7"
+    local division_name="$4"
+    local cmdb_short_name="$5"
+    local redirect_uris="$6"
+    local post_logout_uris="$7"
+    local trusted_origins="$8"
+    local bookmarks="$9"
+    
+    # Convert app_name to lowercase and replace underscores with hyphens
+    local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    
+    # Format redirect URIs for Terraform
+    local formatted_redirect_uris=""
+    if [[ -n "$redirect_uris" ]]; then
+        formatted_redirect_uris=$(echo "$redirect_uris" | sed 's/ /",\n  "/g' | sed 's/^/  "/' | sed 's/$/"/')
+    fi
     
     cat > "$app_folder/3leg-native.tfvars" << EOF
 # 3-leg Native Configuration for $app_label
-app_name = "$app_name-3leg-native"
-app_label = "$app_label Native"
-grant_types = ["password", "refresh_token"]
+app_name = "$division_name"_"$cmdb_short_name"_OIDC_NA
+app_label = "$division_name"_"$cmdb_short_name"_OIDC_NA
+grant_types = ["password", "refresh_token", "authorization_code"]
 redirect_uris = [
-  $native_redirect_uris
+$formatted_redirect_uris
 ]
-response_types = []
+response_types = ["code"]
 token_endpoint_auth_method = "client_secret_basic"
-pkce_required = false
+pkce_required = true
 auto_submit_toolbar = false
 hide_ios = false
-hide_web = false
+hide_web = true
 issuer_mode = "ORG_URL"
 
-group_name = "$app_name-3leg-native-access"
+group_name = "$division_name"_"$cmdb_short_name"_NA_ACCESS
 group_description = "Access group for $app_label Native"
 
-trusted_origin_name = "$app_name-3leg-native-origin"
-trusted_origin_url = "https://api.$app_name.lower().replace('_', '-').example.com"
-trusted_origin_scopes = ["CORS"]
+trusted_origin_name = "$division_name"_"$cmdb_short_name"_NA_ORIGIN
+trusted_origin_url = "https://$app_name_lower.example.com"
+trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "$app_name-3leg-native"
-    group_name = "$app_name-3leg-native-access"
+    app_name = "$division_name"_"$cmdb_short_name"_OIDC_NA
+    group_name = "$division_name"_"$cmdb_short_name"_NA_ACCESS
   }
 ]
 
-bookmark_name = "$app_name-3leg-native-bookmark"
+bookmark_name = "$division_name"_"$cmdb_short_name"_NA_BOOKMARK
 bookmark_label = "$app_label Native Admin"
-bookmark_url = "https://admin.$app_name.lower().replace('_', '-').example.com"
+bookmark_url = "https://$app_name_lower.example.com"
 EOF
 }
 
@@ -497,7 +500,7 @@ main() {
     echo ""
     
     # Validate YAML configuration
-    if ! validate_yaml_config "$config_file" "$app_name"; then
+    if ! validate_yaml_config "$config_file"; then
         exit 1
     fi
     
