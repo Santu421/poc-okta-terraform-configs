@@ -6,18 +6,17 @@ This repository contains per-application Okta configurations managed by the Ops 
 
 ### 1. Create Application Configuration
 
-Create a folder following the naming convention: `DIVISIONNAME_CMDBSHORTNAME_APPNAME`
+Create a folder following the naming convention: `DIVISIONNAME_CMDBSHORTNAME`
 
 ```bash
 # Example: Create a finance expense tracker app for Division 1
-mkdir apps/DIV1_ET_FINANCE_EXPENSE_TRACKER
+mkdir apps/DIV1_ET
 ```
 
 **Naming Rules:**
 - Division name must be one of: `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
 - CMDB short name should be uppercase alphanumeric (e.g., `ET`)
-- App name should be descriptive and use underscores
-- Example: `DIV1_ET_FINANCE_EXPENSE_TRACKER`
+- Example: `DIV1_ET`
 
 ### 2. Create YAML Configuration
 
@@ -67,7 +66,7 @@ bookmarks:
 
 ```bash
 # Validate YAML configuration and generate .tfvars files
-./scripts/validate-yaml-config.sh apps/DIV1_ET_FINANCE_EXPENSE_TRACKER
+./scripts/validate-yaml-config.sh apps/DIV1_ET
 ```
 
 This will:
@@ -81,7 +80,7 @@ This will:
 The script generates these files based on your configuration:
 
 ```
-apps/DIV1_ET_FINANCE_EXPENSE_TRACKER/
+apps/DIV1_ET/
 ├── app-config.yaml          # Your configuration
 ├── 2leg-api.tfvars          # 2-leg API configuration
 └── 3leg-frontend.tfvars     # 3-leg frontend configuration
@@ -90,10 +89,10 @@ apps/DIV1_ET_FINANCE_EXPENSE_TRACKER/
 ## Naming Conventions
 
 ### Folder Naming
-- **Pattern**: `DIVISIONNAME_CMDBSHORTNAME_APPNAME`
+- **Pattern**: `DIVISIONNAME_CMDBSHORTNAME`
 - **Division Names**: Must be one of `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
 - **CMDB Short Name**: Uppercase alphanumeric only
-- **Example**: `DIV1_ET_FINANCE_EXPENSE_TRACKER`
+- **Example**: `DIV1_ET`
 
 ### Okta App Names
 Based on division and CMDB short name:
@@ -113,10 +112,10 @@ Based on division and CMDB short name:
 ## Validation Rules
 
 ### Folder Naming
-- Must match pattern: `DIVISIONNAME_CMDBSHORTNAME_APPNAME`
+- Must match pattern: `DIVISIONNAME_CMDBSHORTNAME`
 - Division name in YAML must match folder prefix
 - CMDB short name in YAML must match folder prefix
-- Example: `DIV1_ET_FINANCE_EXPENSE_TRACKER`
+- Example: `DIV1_ET`
 
 ### YAML Configuration
 - ✅ Required fields: `cmdb_app_name`, `division_name`, `cmdb_short_name`, `point_of_contact_email`, `app_owner`, `onboarding_snow_request`
@@ -144,7 +143,7 @@ Based on division and CMDB short name:
 Validates YAML configuration and generates `.tfvars` files.
 
 ```bash
-./scripts/validate-yaml-config.sh apps/DIV1_ET_FINANCE_EXPENSE_TRACKER
+./scripts/validate-yaml-config.sh apps/DIV1_ET
 ```
 
 ### `validate-all-apps.sh`
@@ -163,7 +162,7 @@ Lists all available applications.
 
 ## Examples
 
-See `apps/DIV1_ET_FINANCE_EXPENSE_TRACKER/` for a complete example including:
+See `apps/DIV1_ET/` for a complete example including:
 - YAML configuration
 - Generated `.tfvars` files
 - Trusted origins and bookmarks

@@ -139,38 +139,35 @@ app_config:
 
 ## Workflow Steps
 
-### 1. App Creation (Ops Team)
+## Ops Team Workflow
+
+### 1. Create App Configuration
 ```bash
-# Create app folder with proper naming
-mkdir apps/DIV1_NA_NEW_APP
+# Create folder with naming convention: DIVISIONNAME_CMDBSHORTNAME
+mkdir apps/DIV1_ET
 
 # Create YAML configuration
-cat > apps/DIV1_NA_NEW_APP/app-config.yaml << EOF
-cmdb_app_name: "New Application"
+cat > apps/DIV1_ET/app-config.yaml << 'EOF'
+cmdb_app_name: "Finance Expense Tracker"
 division_name: "DIV1"
-cmdb_short_name: "NA"
-point_of_contact_email: "team@company.com"
-app_owner: "Development Team"
-onboarding_snow_request: "SNOWREQ123456"
-app_config:
-  create_2leg: true
-  create_3leg_frontend: true
-  create_3leg_backend: false
-  create_3leg_native: false
-  create_saml: false
-  scopes: ["openid", "profile", "email"]
-  redirect_uris: ["https://new-app.company.com/callback"]
-  post_logout_uris: ["https://new-app.company.com/logout"]
+cmdb_short_name: "ET"
+point_of_contact_email: "finance@company.com"
+app_owner: "Finance Team"
+onboarding_snow_request: "REQ123456"
+# ... rest of configuration
 EOF
-
-# Validate configuration
-./scripts/validate-yaml-config.sh apps/DIV1_NA_NEW_APP
 ```
 
-### 2. .tfvars Generation (Ops Team)
+### 2. Validate Configuration
+```bash
+# Validate YAML and generate .tfvars files
+./scripts/validate-yaml-config.sh apps/DIV1_ET
+```
+
+### 3. .tfvars Generation (Ops Team)
 ```bash
 # Generate .tfvars files from YAML
-./scripts/validate-yaml-config.sh apps/DIV1_NA_NEW_APP
+./scripts/validate-yaml-config.sh apps/DIV1_ET
 
 # This creates:
 # - 2leg-api.tfvars (if create_2leg: true)
@@ -179,10 +176,10 @@ EOF
 # - 3leg-native.tfvars (if create_3leg_native: true)
 ```
 
-### 3. Terraform Generation (Engineering Team)
+### 4. Terraform Generation (Engineering Team)
 ```bash
 # Copy .tfvars to modules repo
-cp apps/DIV1_NA_NEW_APP/*.tfvars ../poc-okta-terraform-modules/
+cp apps/DIV1_ET/*.tfvars ../poc-okta-terraform-modules/
 
 # Generate Terraform configuration
 ./scripts/generate-terraform.sh
@@ -192,7 +189,7 @@ cp apps/DIV1_NA_NEW_APP/*.tfvars ../poc-okta-terraform-modules/
 # - modules/ (only for enabled app types)
 ```
 
-### 4. Deployment (Engineering Team)
+### 5. Deployment (Engineering Team)
 ```bash
 # Plan changes
 terraform plan -var-file=2leg-api.tfvars -var-file=3leg-frontend.tfvars

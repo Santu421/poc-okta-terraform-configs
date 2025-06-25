@@ -16,7 +16,7 @@ show_usage() {
     echo "  $0 apps/FINANCE_EXPENSE_TRACKER"
 }
 
-# Function to validate folder name follows DIVISIONNAME_CMDBSHORTNAME_APPNAME pattern
+# Function to validate folder name follows DIVISIONNAME_CMDBSHORTNAME pattern
 validate_folder_name() {
     local folder_path="$1"
     local config_file="$2"
@@ -38,13 +38,13 @@ validate_folder_name() {
         return 1
     fi
     
-    # Expected folder name pattern: DIVISIONNAME_CMDBSHORTNAME_APPNAME
-    local expected_prefix="${division_name_yaml}_${cmdb_short_name_yaml}"
+    # Expected folder name pattern: DIVISIONNAME_CMDBSHORTNAME
+    local expected_folder_name="${division_name_yaml}_${cmdb_short_name_yaml}"
     
-    # Check if folder name starts with expected prefix
-    if [[ ! "$folder_name" =~ ^${expected_prefix}_ ]]; then
+    # Check if folder name matches expected pattern exactly
+    if [[ "$folder_name" != "$expected_folder_name" ]]; then
         echo "❌ Invalid folder name: $folder_name"
-        echo "   Expected pattern: ${expected_prefix}_APPNAME"
+        echo "   Expected: $expected_folder_name"
         echo "   YAML division_name: $division_name_yaml"
         echo "   YAML cmdb_short_name: $cmdb_short_name_yaml"
         return 1
@@ -60,7 +60,6 @@ validate_folder_name() {
     echo "✅ Folder name validation passed: $folder_name"
     echo "   Division: $division_name_yaml"
     echo "   CMDB Short Name: $cmdb_short_name_yaml"
-    echo "   Expected prefix: $expected_prefix"
     return 0
 }
 
@@ -214,11 +213,11 @@ generate_tfvars_from_yaml() {
     local create_3leg_backend=$(yq eval '.app_config.create_3leg_backend' "$config_file")
     local create_3leg_native=$(yq eval '.app_config.create_3leg_native' "$config_file")
     
-    # Get redirect URIs from YAML (single array)
-    local redirect_uris=$(yq eval '.app_config.redirect_uris[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+    # Get redirect URIs from YAML (correct path: oauth_config.redirect_uris)
+    local redirect_uris=$(yq eval '.oauth_config.redirect_uris[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
     
-    # Get post-logout URIs from YAML (single array)
-    local post_logout_uris=$(yq eval '.app_config.post_logout_uris[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+    # Get post-logout URIs from YAML (correct path: oauth_config.post_logout_uris)
+    local post_logout_uris=$(yq eval '.oauth_config.post_logout_uris[]?' "$config_file" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
     
     # Get trusted origins from YAML
     local trusted_origins=$(yq eval '.trusted_origins[]?' "$config_file" 2>/dev/null)
@@ -259,69 +258,44 @@ generate_2leg_tfvars() {
     local cmdb_short_name="$5"
     local trusted_origins="$6"
     local bookmarks="$7"
-    
-    # Convert app_name to lowercase and replace underscores with hyphens
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-    
-    # Format redirect URIs (2-leg doesn't use redirect URIs)
-    local redirect_uris="[]"
-    
-    # Format trusted origins
-    local trusted_origin_name="$division_name"_"$cmdb_short_name"_API_ORIGIN
-    local trusted_origin_url="https://api.$app_name_lower.example.com"
-    local trusted_origin_scopes='["CORS"]'
-    
-    # Use first trusted origin from YAML if available
-    if [[ -n "$trusted_origins" ]]; then
-        trusted_origin_name=$(echo "$trusted_origins" | yq eval '.[0].name' - 2>/dev/null || echo "$trusted_origin_name")
-        trusted_origin_url=$(echo "$trusted_origins" | yq eval '.[0].url' - 2>/dev/null || echo "$trusted_origin_url")
-        trusted_origin_scopes=$(echo "$trusted_origins" | yq eval '.[0].scopes' - 2>/dev/null || echo "$trusted_origin_scopes")
-    fi
-    
-    # Format bookmarks
-    local bookmark_name="$division_name"_"$cmdb_short_name"_API_BOOKMARK
-    local bookmark_label="$cmdb_app_name API Admin"
-    local bookmark_url="https://admin.$app_name_lower.example.com"
-    
-    # Use first bookmark from YAML if available
-    if [[ -n "$bookmarks" ]]; then
-        bookmark_name=$(echo "$bookmarks" | yq eval '.[0].name' - 2>/dev/null || echo "$bookmark_name")
-        bookmark_label=$(echo "$bookmarks" | yq eval '.[0].label' - 2>/dev/null || echo "$bookmark_label")
-        bookmark_url=$(echo "$bookmarks" | yq eval '.[0].url' - 2>/dev/null || echo "$bookmark_url")
-    fi
-    
-    cat > "$app_folder/2leg-api.tfvars" << EOF
+    local output_file="$app_folder/2leg-api.tfvars"
+    cat > "$output_file" << EOF
 # 2-leg API Configuration for $cmdb_app_name
-app_name = "$division_name"_"$cmdb_short_name"_API_SVCS
-app_label = "$division_name"_"$cmdb_short_name"_API_SVCS
-grant_types = ["client_credentials"]
-redirect_uris = $redirect_uris
-response_types = []
+app_name = "${division_name}_${cmdb_short_name}_API_SVCS"
+app_label = "${division_name}_${cmdb_short_name}_API_SVCS"
 token_endpoint_auth_method = "client_secret_basic"
-auto_submit_toolbar = false
-hide_ios = true
-hide_web = true
-issuer_mode = "ORG_URL"
-pkce_required = null
-
-group_name = "$division_name"_"$cmdb_short_name"_API_ACCESS
-group_description = "Access group for $cmdb_app_name API"
-
-trusted_origin_name = "$trusted_origin_name"
-trusted_origin_url = "$trusted_origin_url"
-trusted_origin_scopes = $trusted_origin_scopes
-
-app_group_assignments = [
-  {
-    app_name = "$division_name"_"$cmdb_short_name"_API_SVCS
-    group_name = "$division_name"_"$cmdb_short_name"_API_ACCESS
-  }
-]
-
-bookmark_name = "$bookmark_name"
-bookmark_label = "$bookmark_label"
-bookmark_url = "$bookmark_url"
 EOF
+    # Only add trusted origin if present in YAML
+    if [[ -n "$trusted_origins" ]]; then
+        local trusted_origin_name=$(echo "$trusted_origins" | yq eval '.[0].name' - 2>/dev/null)
+        local trusted_origin_url=$(echo "$trusted_origins" | yq eval '.[0].url' - 2>/dev/null)
+        local trusted_origin_scopes=$(echo "$trusted_origins" | yq eval '.[0].scopes' - 2>/dev/null)
+        if [[ -n "$trusted_origin_name" && "$trusted_origin_name" != "null" ]]; then
+            echo "trusted_origin_name = \"$trusted_origin_name\"" >> "$output_file"
+        fi
+        if [[ -n "$trusted_origin_url" && "$trusted_origin_url" != "null" ]]; then
+            echo "trusted_origin_url = \"$trusted_origin_url\"" >> "$output_file"
+        fi
+        if [[ -n "$trusted_origin_scopes" && "$trusted_origin_scopes" != "null" ]]; then
+            echo "trusted_origin_scopes = $trusted_origin_scopes" >> "$output_file"
+        fi
+    fi
+    # Only add bookmark if present in YAML
+    if [[ -n "$bookmarks" ]]; then
+        local bookmark_name=$(echo "$bookmarks" | yq eval '.[0].name' - 2>/dev/null)
+        local bookmark_label=$(echo "$bookmarks" | yq eval '.[0].label' - 2>/dev/null)
+        local bookmark_url=$(echo "$bookmarks" | yq eval '.[0].url' - 2>/dev/null)
+        if [[ -n "$bookmark_name" && "$bookmark_name" != "null" ]]; then
+            echo "bookmark_name = \"$bookmark_name\"" >> "$output_file"
+        fi
+        if [[ -n "$bookmark_label" && "$bookmark_label" != "null" ]]; then
+            echo "bookmark_label = \"$bookmark_label\"" >> "$output_file"
+        fi
+        if [[ -n "$bookmark_url" && "$bookmark_url" != "null" ]]; then
+            echo "bookmark_url = \"$bookmark_url\"" >> "$output_file"
+        fi
+    fi
 }
 
 # Function to generate 3-leg frontend .tfvars
@@ -339,43 +313,41 @@ generate_3leg_frontend_tfvars() {
     # Convert app_name to lowercase and replace underscores with hyphens
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
     
-    # Format redirect URIs for Terraform
-    local formatted_redirect_uris=""
-    if [[ -n "$redirect_uris" ]]; then
-        formatted_redirect_uris=$(echo "$redirect_uris" | sed 's/ /",\n  "/g' | sed 's/^/  "/' | sed 's/$/"/')
-    fi
-    
+    # Create the .tfvars file
     cat > "$app_folder/3leg-frontend.tfvars" << EOF
 # 3-leg Frontend Configuration for $cmdb_app_name
-app_name = "$division_name"_"$cmdb_short_name"_OIDC_SPA
-app_label = "$division_name"_"$cmdb_short_name"_OIDC_SPA
+app_name = "${division_name}_${cmdb_short_name}_OIDC_SPA"
+app_label = "${division_name}_${cmdb_short_name}_OIDC_SPA"
 grant_types = ["authorization_code", "refresh_token"]
 redirect_uris = [
-$formatted_redirect_uris
+EOF
+    
+    # Add redirect URIs
+    if [[ -n "$redirect_uris" ]]; then
+        echo "$redirect_uris" | tr ' ' '\n' | sed 's/^/  "/' | sed 's/$/",/' >> "$app_folder/3leg-frontend.tfvars"
+    fi
+    
+    # Complete the file
+    cat >> "$app_folder/3leg-frontend.tfvars" << EOF
 ]
 response_types = ["code"]
 token_endpoint_auth_method = "none"
-pkce_required = true
-auto_submit_toolbar = false
-hide_ios = false
-hide_web = false
-issuer_mode = "ORG_URL"
 
-group_name = "$division_name"_"$cmdb_short_name"_SPA_ACCESS
+group_name = "${division_name}_${cmdb_short_name}_SPA_ACCESS"
 group_description = "Access group for $cmdb_app_name Frontend"
 
-trusted_origin_name = "$division_name"_"$cmdb_short_name"_SPA_ORIGIN
+trusted_origin_name = "${division_name}_${cmdb_short_name}_SPA_ORIGIN"
 trusted_origin_url = "https://$app_name_lower.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "$division_name"_"$cmdb_short_name"_OIDC_SPA
-    group_name = "$division_name"_"$cmdb_short_name"_SPA_ACCESS
+    app_name = "${division_name}_${cmdb_short_name}_OIDC_SPA"
+    group_name = "${division_name}_${cmdb_short_name}_SPA_ACCESS"
   }
 ]
 
-bookmark_name = "$division_name"_"$cmdb_short_name"_SPA_BOOKMARK
+bookmark_name = "${division_name}_${cmdb_short_name}_SPA_BOOKMARK"
 bookmark_label = "$cmdb_app_name Frontend Admin"
 bookmark_url = "https://$app_name_lower.example.com"
 EOF
@@ -392,47 +364,37 @@ generate_3leg_backend_tfvars() {
     local post_logout_uris="$7"
     local trusted_origins="$8"
     local bookmarks="$9"
-    
-    # Convert app_name to lowercase and replace underscores with hyphens
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-    
-    # Format redirect URIs for Terraform
-    local formatted_redirect_uris=""
-    if [[ -n "$redirect_uris" ]]; then
-        formatted_redirect_uris=$(echo "$redirect_uris" | sed 's/ /",\n  "/g' | sed 's/^/  "/' | sed 's/$/"/')
-    fi
-    
     cat > "$app_folder/3leg-backend.tfvars" << EOF
 # 3-leg Backend Configuration for $cmdb_app_name
-app_name = "$division_name"_"$cmdb_short_name"_OIDC_WA
-app_label = "$division_name"_"$cmdb_short_name"_OIDC_WA
+app_name = "${division_name}_${cmdb_short_name}_OIDC_WA"
+app_label = "${division_name}_${cmdb_short_name}_OIDC_WA"
 grant_types = ["authorization_code", "refresh_token"]
 redirect_uris = [
-$formatted_redirect_uris
+EOF
+    if [[ -n "$redirect_uris" ]]; then
+        echo "$redirect_uris" | tr ' ' '\n' | sed 's/^/  "/' | sed 's/$/",/' >> "$app_folder/3leg-backend.tfvars"
+    fi
+    cat >> "$app_folder/3leg-backend.tfvars" << EOF
 ]
 response_types = ["code"]
 token_endpoint_auth_method = "client_secret_basic"
-pkce_required = false
-auto_submit_toolbar = false
-hide_ios = false
-hide_web = false
-issuer_mode = "ORG_URL"
 
-group_name = "$division_name"_"$cmdb_short_name"_WA_ACCESS
+group_name = "${division_name}_${cmdb_short_name}_WA_ACCESS"
 group_description = "Access group for $cmdb_app_name Backend"
 
-trusted_origin_name = "$division_name"_"$cmdb_short_name"_WA_ORIGIN
+trusted_origin_name = "${division_name}_${cmdb_short_name}_WA_ORIGIN"
 trusted_origin_url = "https://$app_name_lower.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "$division_name"_"$cmdb_short_name"_OIDC_WA
-    group_name = "$division_name"_"$cmdb_short_name"_WA_ACCESS
+    app_name = "${division_name}_${cmdb_short_name}_OIDC_WA"
+    group_name = "${division_name}_${cmdb_short_name}_WA_ACCESS"
   }
 ]
 
-bookmark_name = "$division_name"_"$cmdb_short_name"_WA_BOOKMARK
+bookmark_name = "${division_name}_${cmdb_short_name}_WA_BOOKMARK"
 bookmark_label = "$cmdb_app_name Backend Admin"
 bookmark_url = "https://$app_name_lower.example.com"
 EOF
@@ -449,47 +411,37 @@ generate_3leg_native_tfvars() {
     local post_logout_uris="$7"
     local trusted_origins="$8"
     local bookmarks="$9"
-    
-    # Convert app_name to lowercase and replace underscores with hyphens
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-    
-    # Format redirect URIs for Terraform
-    local formatted_redirect_uris=""
-    if [[ -n "$redirect_uris" ]]; then
-        formatted_redirect_uris=$(echo "$redirect_uris" | sed 's/ /",\n  "/g' | sed 's/^/  "/' | sed 's/$/"/')
-    fi
-    
     cat > "$app_folder/3leg-native.tfvars" << EOF
 # 3-leg Native Configuration for $cmdb_app_name
-app_name = "$division_name"_"$cmdb_short_name"_OIDC_NA
-app_label = "$division_name"_"$cmdb_short_name"_OIDC_NA
+app_name = "${division_name}_${cmdb_short_name}_OIDC_NA"
+app_label = "${division_name}_${cmdb_short_name}_OIDC_NA"
 grant_types = ["password", "refresh_token", "authorization_code"]
 redirect_uris = [
-$formatted_redirect_uris
+EOF
+    if [[ -n "$redirect_uris" ]]; then
+        echo "$redirect_uris" | tr ' ' '\n' | sed 's/^/  "/' | sed 's/$/",/' >> "$app_folder/3leg-native.tfvars"
+    fi
+    cat >> "$app_folder/3leg-native.tfvars" << EOF
 ]
 response_types = ["code"]
 token_endpoint_auth_method = "client_secret_basic"
-pkce_required = true
-auto_submit_toolbar = false
-hide_ios = false
-hide_web = true
-issuer_mode = "ORG_URL"
 
-group_name = "$division_name"_"$cmdb_short_name"_NA_ACCESS
+group_name = "${division_name}_${cmdb_short_name}_NA_ACCESS"
 group_description = "Access group for $cmdb_app_name Native"
 
-trusted_origin_name = "$division_name"_"$cmdb_short_name"_NA_ORIGIN
+trusted_origin_name = "${division_name}_${cmdb_short_name}_NA_ORIGIN"
 trusted_origin_url = "https://$app_name_lower.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "$division_name"_"$cmdb_short_name"_OIDC_NA
-    group_name = "$division_name"_"$cmdb_short_name"_NA_ACCESS
+    app_name = "${division_name}_${cmdb_short_name}_OIDC_NA"
+    group_name = "${division_name}_${cmdb_short_name}_NA_ACCESS"
   }
 ]
 
-bookmark_name = "$division_name"_"$cmdb_short_name"_NA_BOOKMARK
+bookmark_name = "${division_name}_${cmdb_short_name}_NA_BOOKMARK"
 bookmark_label = "$cmdb_app_name Native Admin"
 bookmark_url = "https://$app_name_lower.example.com"
 EOF
