@@ -1,222 +1,272 @@
-# Okta App Onboarding Workflow
+# Okta Terraform Automation Workflow
 
-This document describes the complete workflow for onboarding Okta applications with clear separation of responsibilities between Ops and Engineering teams.
+## Overview
 
-## Team Responsibilities
+This document describes the workflow for managing Okta applications using Terraform automation across two repositories:
 
-### **Ops Team** (owns `poc-okta-terraform-configs`)
-- Creates app folders with YAML configurations
-- Runs validation scripts
-- Generates .tfvars files
-- Deploys applications using Terraform
+1. **`poc-okta-terraform-configs`** (Ops Team) - Per-app configurations and YAML definitions
+2. **`poc-okta-terraform-modules`** (Engineering Team) - Reusable Terraform modules
 
-### **Engineering Team** (owns `poc-okta-terraform-modules`)
-- Maintains reusable Terraform modules
-- Enforces business rules and validation
-- Defines allowed app type combinations
-- Ensures security and compliance
+## Repository Structure
 
-## Complete Workflow
-
-### **Step 1: Ops Team - Create App Configuration**
-
-1. **Create app folder** following naming convention:
-   ```bash
-   mkdir apps/DIVISIONNAME_APPNAME
-   # Example: apps/FINANCE_EXPENSE_TRACKER
-   ```
-
-2. **Create YAML configuration** (`app-config.yaml`):
-   ```yaml
-   app_name: "FINANCE_EXPENSE_TRACKER"
-   app_label: "Finance Expense Tracker"
-   point_of_contact_email: "finance-team@company.com"
-   app_owner: "Finance IT Team"
-   onboarding_snow_request: "SNOWREQ123456"
-   
-   oauth_config:
-     create_2leg: true
-     create_3leg_frontend: true
-     create_3leg_backend: false
-     create_3leg_native: false
-     create_saml: false
-     scopes:
-       - "openid"
-       - "profile"
-       - "email"
-       - "finance:read"
-       - "finance:write"
-   ```
-
-### **Step 2: Ops Team - Validate YAML Configuration**
-
-```bash
-# Validate YAML configuration and folder naming
-./scripts/validate-yaml-config.sh apps/FINANCE_EXPENSE_TRACKER
+### Configs Repository (`poc-okta-terraform-configs`)
+```
+apps/
+├── DIV1_FINANCE_EXPENSE_TRACKER/
+│   ├── app-config.yaml          # App configuration
+│   ├── 2leg-api.tfvars          # Generated 2-leg OAuth config
+│   └── 3leg-frontend.tfvars     # Generated 3-leg frontend config
+├── DIV2_HR_EMPLOYEE_PORTAL/
+│   └── app-config.yaml
+└── ...
+scripts/
+├── validate-yaml-config.sh      # YAML validation
+├── generate-terraform.sh        # .tfvars generation
+└── deploy-app.sh               # Deployment script
 ```
 
-**This validates:**
-- ✅ Folder name follows `DIVISIONNAME_APPNAME` pattern
-- ✅ Required fields: `app_name`, `app_label`, `point_of_contact_email`, `app_owner`, `onboarding_snow_request`
-- ✅ Email format is valid
-- ✅ Only one 3-leg app type is enabled
-- ✅ At least one OAuth type is enabled
-- ✅ SAML is false (not implemented)
-
-### **Step 3: Ops Team - Generate .tfvars Files**
-
-The validation script automatically generates .tfvars files for each enabled app type:
-
-```bash
-# Generated files:
-apps/FINANCE_EXPENSE_TRACKER/
-├── app-config.yaml
-├── 2leg-api.tfvars          # Generated for 2-leg API
-└── 3leg-frontend.tfvars     # Generated for 3-leg Frontend
+### Modules Repository (`poc-okta-terraform-modules`)
+```
+modules/
+├── oauth_2leg/                 # 2-leg OAuth module
+├── spa_oidc/                   # 3-leg SPA OIDC module
+├── web_oidc/                   # 3-leg Web OIDC module
+├── na_oidc/                    # 3-leg Native OIDC module
+├── okta_group/                 # Group management
+├── okta_trusted_origin/        # Trusted origins
+├── okta_app_bookmark/          # Bookmark apps
+└── okta_app_group_assignment/  # Group assignments
 ```
 
-### **Step 4: Engineering Team - Validate .tfvars Combinations**
+## Naming Conventions
 
-```bash
-# Validate .tfvars combinations (Engineering Team validation)
-../poc-okta-terraform-modules/scripts/validate-tfvars-combination.sh apps/FINANCE_EXPENSE_TRACKER
+### Folder Naming
+- **Pattern**: `DIVISIONNAME_APPNAME`
+- **Division Names**: Must be one of `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
+- **Example**: `DIV1_FINANCE_EXPENSE_TRACKER`
+
+### Okta App Naming
+Based on division and CMDB short name:
+
+| App Type | Naming Pattern | Example |
+|----------|---------------|---------|
+| 2-leg API | `DIVISIONNAME_CMDBNAME_API_SVCS` | `DIV1_ET_API_SVCS` |
+| 3-leg Backend | `DIVISIONNAME_CMDBNAME_OIDC_WA` | `DIV1_ET_OIDC_WA` |
+| 3-leg Native | `DIVISIONNAME_CMDBNAME_OIDC_NA` | `DIV1_ET_OIDC_NA` |
+| 3-leg Frontend | `DIVISIONNAME_CMDBNAME_OIDC_SPA` | `DIV1_ET_OIDC_SPA` |
+| SAML Dev | `DIVISIONNAME_CMDBNAME_SAML_DEV` | `DIV1_ET_SAML_DEV` |
+| SAML SI | `DIVISIONNAME_CMDBNAME_SAML_SI` | `DIV1_ET_SAML_SI` |
+| SAML QA | `DIVISIONNAME_CMDBNAME_SAML_QA` | `DIV1_ET_SAML_QA` |
+| SAML UAT | `DIVISIONNAME_CMDBNAME_SAML_UAT` | `DIV1_ET_SAML_UAT` |
+| SAML Prod | `DIVISIONNAME_CMDBNAME_SAML_PROD` | `DIV1_ET_SAML_PROD` |
+
+### CMDB Short Name
+- **Format**: Uppercase alphanumeric only
+- **Purpose**: Short identifier for the application
+- **Example**: `ET` for "Finance Expense Tracker"
+
+## YAML Configuration Schema
+
+### Required Fields
+```yaml
+app_label: "Human-readable application name"
+cmdb_short_name: "ET"  # Uppercase alphanumeric only
+point_of_contact_email: "team@company.com"
+app_owner: "Team or person responsible"
+onboarding_snow_request: "SNOWREQ123456"
 ```
 
-**This validates business rules:**
-- ✅ Only one 3-leg app type per application
-- ✅ Allowed combinations:
-  - `2-leg + 3-leg-frontend` (hybrid) ✅
-  - `2-leg only` ✅
-  - `3-leg-frontend only` ✅
-  - `3-leg-backend only` ✅
-  - `3-leg-native only` ✅
-- ❌ Forbidden combinations:
-  - `2-leg + 3-leg-backend` ❌
-  - `2-leg + 3-leg-native` ❌
-  - Multiple 3-leg types ❌
-
-### **Step 5: Ops Team - Deploy Application**
-
-```bash
-# Generate Terraform configuration
-./scripts/generate-terraform.sh apps/FINANCE_EXPENSE_TRACKER FINANCE_EXPENSE_TRACKER
-
-# Deploy to Okta
-cd generated/FINANCE_EXPENSE_TRACKER
-terraform init
-terraform plan
-terraform apply
+### OAuth Configuration
+```yaml
+oauth_config:
+  create_2leg: true              # Client credentials flow
+  create_3leg_frontend: true     # SPA with PKCE
+  create_3leg_backend: false     # Web app with client secret
+  create_3leg_native: false      # Native app with password grant
+  create_saml: false             # Not implemented yet
+  
+  scopes:
+    - "openid"
+    - "profile"
+    - "email"
+  
+  redirect_uris:
+    - "https://app.company.com/callback"
+    - "http://localhost:3000/callback"
+  
+  post_logout_uris:
+    - "https://app.company.com/logout"
 ```
 
-## Validation Rules Summary
+## Validation Layers
 
-### **Ops Team Validation (YAML Level)**
-| Rule | Description |
-|------|-------------|
-| Folder Naming | Must follow `DIVISIONNAME_APPNAME` pattern |
-| Required Fields | `app_name`, `app_label`, `point_of_contact_email`, `app_owner`, `onboarding_snow_request` |
-| Email Format | Valid email address format |
-| OAuth Types | Only one 3-leg type can be true |
-| SAML | Must be false (not implemented) |
-| Scopes | At least one OAuth type must be enabled |
+### Layer 1: YAML Validation (Ops Team)
+**Script**: `scripts/validate-yaml-config.sh`
 
-### **Engineering Team Validation (.tfvars Level)**
-| Rule | Description |
-|------|-------------|
-| App Combinations | Enforces business rules for app type combinations |
-| File Structure | Validates .tfvars files have required fields |
-| Business Logic | Prevents invalid combinations like `2-leg + 3-leg-backend` |
+**Validates**:
+- ✅ Folder naming follows `DIVISIONNAME_APPNAME` pattern
+- ✅ Division name is one of `DIV1-DIV6`
+- ✅ Required fields present (app_label, cmdb_short_name, etc.)
+- ✅ Email format validation
+- ✅ CMDB short name format (uppercase alphanumeric)
+- ✅ OAuth configuration rules
+- ✅ Only one 3-leg type enabled at a time
+- ✅ SAML must be false (not implemented)
+- ✅ At least one OAuth type enabled
+
+### Layer 2: Terraform Validation (Engineering Team)
+**Script**: `scripts/validate-tfvars-combination.sh`
+
+**Validates**:
+- ✅ Business rules on app type combinations
+- ✅ Allowed grant types per app type
+- ✅ Required fields in .tfvars files
+- ✅ Terraform syntax validation
 
 ## Allowed App Type Combinations
 
-| Combination | Description | Use Case |
-|-------------|-------------|----------|
-| `2-leg only` | API service | Server-to-server communication |
-| `3-leg-frontend only` | SPA application | Browser-based applications |
-| `3-leg-backend only` | Web application | Server-side web apps |
-| `3-leg-native only` | Native application | Mobile/desktop apps |
-| `2-leg + 3-leg-frontend` | Hybrid application | Full-stack applications |
+| Combination | 2-leg | 3-leg Frontend | 3-leg Backend | 3-leg Native | Description |
+|-------------|-------|----------------|---------------|--------------|-------------|
+| API Only | ✅ | ❌ | ❌ | ❌ | Server-to-server API |
+| Frontend Only | ❌ | ✅ | ❌ | ❌ | SPA application |
+| Backend Only | ❌ | ❌ | ✅ | ❌ | Web application |
+| Native Only | ❌ | ❌ | ❌ | ✅ | Mobile/desktop app |
+| Hybrid API + Frontend | ✅ | ✅ | ❌ | ❌ | API + SPA frontend |
+| Hybrid API + Backend | ✅ | ❌ | ✅ | ❌ | API + web backend |
+| Hybrid API + Native | ✅ | ❌ | ❌ | ✅ | API + native app |
 
-## Example Workflows
+## Workflow Steps
 
-### **Example 1: Simple SPA**
+### 1. App Creation (Ops Team)
 ```bash
-# Ops Team
-mkdir apps/HR_EMPLOYEE_PORTAL
-# Create app-config.yaml with create_3leg_frontend: true
-./scripts/validate-yaml-config.sh apps/HR_EMPLOYEE_PORTAL
+# Create app folder with proper naming
+mkdir apps/DIV1_NEW_APP
 
-# Engineering Team
-../poc-okta-terraform-modules/scripts/validate-tfvars-combination.sh apps/HR_EMPLOYEE_PORTAL
+# Create YAML configuration
+cat > apps/DIV1_NEW_APP/app-config.yaml << EOF
+app_label: "New Application"
+cmdb_short_name: "NA"
+point_of_contact_email: "team@company.com"
+app_owner: "Development Team"
+onboarding_snow_request: "SNOWREQ123456"
+oauth_config:
+  create_2leg: true
+  create_3leg_frontend: true
+  create_3leg_backend: false
+  create_3leg_native: false
+  create_saml: false
+  scopes: ["openid", "profile", "email"]
+  redirect_uris: ["https://new-app.company.com/callback"]
+  post_logout_uris: ["https://new-app.company.com/logout"]
+EOF
 
-# Ops Team
-./scripts/generate-terraform.sh apps/HR_EMPLOYEE_PORTAL HR_EMPLOYEE_PORTAL
-cd generated/HR_EMPLOYEE_PORTAL && terraform apply
+# Validate configuration
+./scripts/validate-yaml-config.sh apps/DIV1_NEW_APP
 ```
 
-### **Example 2: Hybrid Application**
+### 2. .tfvars Generation (Ops Team)
 ```bash
-# Ops Team
-mkdir apps/FINANCE_EXPENSE_TRACKER
-# Create app-config.yaml with create_2leg: true, create_3leg_frontend: true
-./scripts/validate-yaml-config.sh apps/FINANCE_EXPENSE_TRACKER
+# Generate .tfvars files from YAML
+./scripts/validate-yaml-config.sh apps/DIV1_NEW_APP
 
-# Engineering Team
-../poc-okta-terraform-modules/scripts/validate-tfvars-combination.sh apps/FINANCE_EXPENSE_TRACKER
-
-# Ops Team
-./scripts/generate-terraform.sh apps/FINANCE_EXPENSE_TRACKER FINANCE_EXPENSE_TRACKER
-cd generated/FINANCE_EXPENSE_TRACKER && terraform apply
+# This creates:
+# - 2leg-api.tfvars (if create_2leg: true)
+# - 3leg-frontend.tfvars (if create_3leg_frontend: true)
+# - 3leg-backend.tfvars (if create_3leg_backend: true)
+# - 3leg-native.tfvars (if create_3leg_native: true)
 ```
 
-## Error Handling
+### 3. Terraform Generation (Engineering Team)
+```bash
+# Copy .tfvars to modules repo
+cp apps/DIV1_NEW_APP/*.tfvars ../poc-okta-terraform-modules/
 
-### **Common Validation Errors**
+# Generate Terraform configuration
+./scripts/generate-terraform.sh
 
-1. **Invalid Folder Name**:
-   ```
-   ❌ Invalid folder name: my-app
-   Must follow pattern: DIVISIONNAME_APPNAME (uppercase, underscores only)
-   ```
+# This creates:
+# - main.tf (calls appropriate modules)
+# - modules/ (only for enabled app types)
+```
 
-2. **Invalid Email**:
-   ```
-   ❌ point_of_contact_email is not a valid email address: invalid-email
-   ```
+### 4. Deployment (Engineering Team)
+```bash
+# Plan changes
+terraform plan -var-file=2leg-api.tfvars -var-file=3leg-frontend.tfvars
 
-3. **Multiple 3-leg Types**:
-   ```
-   ❌ Only one 3-leg app type can be enabled at a time
-   ```
+# Apply changes (with approval)
+terraform apply -var-file=2leg-api.tfvars -var-file=3leg-frontend.tfvars
+```
 
-4. **Invalid Combination**:
-   ```
-   ❌ Validation Failed: Invalid combination
-   2-leg API cannot be combined with 3-leg Backend
-   ```
+## GitHub Actions Workflow
 
-## Security and Compliance
+### Manual App Selection
+```yaml
+# .github/workflows/deploy-apps.yml
+- name: List Available Apps
+  run: ./scripts/list-apps.sh
 
-- **Separation of Concerns**: Ops team manages configurations, Engineering team enforces rules
-- **Audit Trail**: Every app has SNOW request tracking
-- **Contact Information**: Clear ownership and contact details for each app
-- **Business Rules**: Engineering team prevents invalid app combinations
-- **Validation**: Multiple layers of validation ensure compliance
+- name: Select Apps to Deploy
+  uses: actions/github-script@v6
+  with:
+    script: |
+      // Manual selection interface
+```
+
+### Validation Gates
+1. **YAML Validation**: Ensures proper configuration
+2. **Terraform Plan**: Shows what will be created
+3. **Manual Approval**: Requires human approval
+4. **Terraform Apply**: Creates resources in Okta
+
+## Future Enhancements
+
+### SAML Support
+- [ ] Implement SAML app modules
+- [ ] Add SAML configuration to YAML schema
+- [ ] Update validation rules
+- [ ] Add environment-specific naming (DEV, SI, QA, UAT, PROD)
+
+### Advanced Features
+- [ ] Multi-environment support
+- [ ] Automated testing
+- [ ] Rollback capabilities
+- [ ] Monitoring and alerting
+- [ ] Cost optimization
 
 ## Troubleshooting
 
-### **If YAML validation fails:**
-1. Check folder naming convention
-2. Ensure all required fields are present
-3. Validate email format
-4. Review OAuth configuration
+### Common Issues
 
-### **If .tfvars validation fails:**
-1. Check app type combinations
-2. Ensure only allowed combinations are used
-3. Contact Engineering team for rule clarification
+1. **Invalid folder name**
+   ```
+   ❌ Invalid folder name: FINANCE_EXPENSE_TRACKER
+   Must follow pattern: DIVISIONNAME_APPNAME (where DIVISIONNAME is DIV1-DIV6)
+   ```
+   **Solution**: Rename folder to `DIV1_FINANCE_EXPENSE_TRACKER`
 
-### **If deployment fails:**
-1. Check Okta API credentials
-2. Verify app names don't conflict
-3. Review Terraform logs for specific errors 
+2. **Invalid division name**
+   ```
+   ❌ Invalid division name: DIV7
+   Must be one of: DIV1, DIV2, DIV3, DIV4, DIV5, DIV6
+   ```
+   **Solution**: Use a valid division name
+
+3. **Multiple 3-leg types enabled**
+   ```
+   ❌ Only one 3-leg app type can be enabled at a time
+   ```
+   **Solution**: Enable only one of frontend/backend/native
+
+4. **Invalid CMDB short name**
+   ```
+   ❌ cmdb_short_name must be uppercase alphanumeric only: et
+   ```
+   **Solution**: Use uppercase alphanumeric only (e.g., "ET")
+
+### Getting Help
+
+- **Ops Team**: Contact for YAML configuration issues
+- **Engineering Team**: Contact for Terraform/module issues
+- **Documentation**: Check this file and README.md
+- **Examples**: See `apps/DIV1_FINANCE_EXPENSE_TRACKER/` for reference 
