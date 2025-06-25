@@ -1,11 +1,13 @@
 # Okta App Configuration Schema - Enhanced Version
 # This schema defines the structure and validation rules for app configurations
+# New folder structure: apps/DIVISION/APPNAME/ENVIRONMENT/app-config.yaml
 
 type: object
 required:
   - cmdb_app_name
   - division_name
   - cmdb_short_name
+  - environment
   - point_of_contact_email
   - app_owner
   - onboarding_snow_request
@@ -19,12 +21,17 @@ properties:
   division_name:
     type: string
     enum: ["DIV1", "DIV2", "DIV3", "DIV4", "DIV5", "DIV6"]
-    description: "Division name (must match folder name prefix)"
+    description: "Division name (must match folder name)"
   
   cmdb_short_name:
     type: string
     pattern: '^[A-Z0-9]+$'
     description: "CMDB short name (e.g., ET for Finance Expense Tracker)"
+  
+  environment:
+    type: string
+    enum: ["dev", "uat", "prod"]
+    description: "Environment name (must match folder name)"
   
   point_of_contact_email:
     type: string
@@ -168,11 +175,14 @@ properties:
           default: false
 
 # Validation Rules:
-# 1. Folder name must match pattern: DIVISIONNAME_CMDBSHORTNAME (where DIVISIONNAME is one of DIV1-DIV6)
-# 2. Division name in YAML must match folder name
-# 3. Only one 3-leg app type can be true at a time
-# 4. 2-leg and 3-leg can be combined (hybrid)
-# 5. SAML must be false (not implemented)
-# 6. At least one OAuth type must be true
-# 7. All URIs must be valid URLs
-# 8. CMDB short name must be uppercase alphanumeric only 
+# 1. Folder structure must be: apps/DIVISION/APPNAME/ENVIRONMENT/app-config.yaml
+# 2. Division name must be one of DIV1-DIV6
+# 3. Environment must be one of: dev, uat, prod
+# 4. CMDB short name must be uppercase alphanumeric only
+# 5. Division name in YAML must match folder name
+# 6. Environment in YAML must match folder name
+# 7. Only one 3-leg app type can be true at a time
+# 8. 2-leg and 3-leg can be combined (hybrid)
+# 9. SAML must be false (not implemented)
+# 10. At least one OAuth type must be true
+# 11. All URIs must be valid URLs 

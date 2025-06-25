@@ -2,6 +2,7 @@
 
 # Script to validate YAML configuration files
 # Enforces strict rules for app configuration
+# New folder structure: apps/DIVISION/APPNAME/ENVIRONMENT/app-config.yaml
 
 set -e
 
@@ -10,23 +11,29 @@ show_usage() {
     echo "Usage: $0 <app_folder>"
     echo ""
     echo "Validates YAML configuration for an app folder"
-    echo "App folder must follow pattern: DIVISIONNAME_APPNAME"
+    echo "App folder must follow structure: apps/DIVISION/APPNAME/ENVIRONMENT/"
     echo ""
     echo "Example:"
-    echo "  $0 apps/FINANCE_EXPENSE_TRACKER"
+    echo "  $0 apps/DIV1/ET/prod"
+    echo "  $0 apps/DIV2/HR/dev"
 }
 
-# Function to validate folder name follows DIVISIONNAME_CMDBSHORTNAME pattern
-validate_folder_name() {
+# Function to validate folder structure follows apps/DIVISION/APPNAME/ENVIRONMENT pattern
+validate_folder_structure() {
     local folder_path="$1"
     local config_file="$2"
     
-    # Extract folder name from path
-    local folder_name=$(basename "$folder_path")
+    # Get the full path and extract components
+    local full_path=$(realpath "$folder_path")
+    local apps_dir=$(dirname "$(dirname "$(dirname "$full_path")")")
+    local division_name=$(basename "$(dirname "$(dirname "$full_path")")")
+    local app_name=$(basename "$(dirname "$full_path")")
+    local environment=$(basename "$full_path")
     
-    # Get division name and CMDB short name from YAML
+    # Get values from YAML
     local division_name_yaml=$(yq eval '.division_name' "$config_file" 2>/dev/null)
     local cmdb_short_name_yaml=$(yq eval '.cmdb_short_name' "$config_file" 2>/dev/null)
+    local environment_yaml=$(yq eval '.environment' "$config_file" 2>/dev/null)
     
     if [[ -z "$division_name_yaml" || "$division_name_yaml" == "null" ]]; then
         echo "❌ Missing division_name in YAML configuration"
@@ -38,28 +45,57 @@ validate_folder_name() {
         return 1
     fi
     
-    # Expected folder name pattern: DIVISIONNAME_CMDBSHORTNAME
-    local expected_folder_name="${division_name_yaml}_${cmdb_short_name_yaml}"
-    
-    # Check if folder name matches expected pattern exactly
-    if [[ "$folder_name" != "$expected_folder_name" ]]; then
-        echo "❌ Invalid folder name: $folder_name"
-        echo "   Expected: $expected_folder_name"
-        echo "   YAML division_name: $division_name_yaml"
-        echo "   YAML cmdb_short_name: $cmdb_short_name_yaml"
+    if [[ -z "$environment_yaml" || "$environment_yaml" == "null" ]]; then
+        echo "❌ Missing environment in YAML configuration"
         return 1
     fi
     
-    # Validate division name is one of DIV1-DIV6
-    if [[ ! "$division_name_yaml" =~ ^DIV[1-6]$ ]]; then
-        echo "❌ Invalid division name in YAML: $division_name_yaml"
+    # Validate division name format and match
+    if [[ ! "$division_name" =~ ^DIV[1-6]$ ]]; then
+        echo "❌ Invalid division folder name: $division_name"
         echo "   Must be one of: DIV1, DIV2, DIV3, DIV4, DIV5, DIV6"
         return 1
     fi
     
-    echo "✅ Folder name validation passed: $folder_name"
-    echo "   Division: $division_name_yaml"
-    echo "   CMDB Short Name: $cmdb_short_name_yaml"
+    if [[ "$division_name" != "$division_name_yaml" ]]; then
+        echo "❌ Division name mismatch:"
+        echo "   Folder: $division_name"
+        echo "   YAML: $division_name_yaml"
+        return 1
+    fi
+    
+    # Validate app name format (should match CMDB short name)
+    if [[ ! "$app_name" =~ ^[A-Z0-9]+$ ]]; then
+        echo "❌ Invalid app folder name: $app_name"
+        echo "   Must be uppercase alphanumeric only"
+        return 1
+    fi
+    
+    if [[ "$app_name" != "$cmdb_short_name_yaml" ]]; then
+        echo "❌ App name mismatch:"
+        echo "   Folder: $app_name"
+        echo "   YAML cmdb_short_name: $cmdb_short_name_yaml"
+        return 1
+    fi
+    
+    # Validate environment format and match
+    if [[ ! "$environment" =~ ^(dev|uat|prod)$ ]]; then
+        echo "❌ Invalid environment folder name: $environment"
+        echo "   Must be one of: dev, uat, prod"
+        return 1
+    fi
+    
+    if [[ "$environment" != "$environment_yaml" ]]; then
+        echo "❌ Environment name mismatch:"
+        echo "   Folder: $environment"
+        echo "   YAML: $environment_yaml"
+        return 1
+    fi
+    
+    echo "✅ Folder structure validation passed:"
+    echo "   Division: $division_name"
+    echo "   App: $app_name"
+    echo "   Environment: $environment"
     return 0
 }
 
@@ -83,7 +119,7 @@ validate_yaml_config() {
     fi
     
     # Validate required fields
-    local required_fields=("cmdb_app_name" "division_name" "cmdb_short_name" "point_of_contact_email" "app_owner" "onboarding_snow_request")
+    local required_fields=("cmdb_app_name" "division_name" "cmdb_short_name" "environment" "point_of_contact_email" "app_owner" "onboarding_snow_request")
     
     for field in "${required_fields[@]}"; do
         local value=$(yq eval ".$field" "$config_file" 2>/dev/null)
@@ -111,6 +147,13 @@ validate_yaml_config() {
     local cmdb_short_name=$(yq eval '.cmdb_short_name' "$config_file")
     if [[ ! "$cmdb_short_name" =~ ^[A-Z0-9]+$ ]]; then
         echo "❌ cmdb_short_name must be uppercase alphanumeric only: $cmdb_short_name"
+        return 1
+    fi
+    
+    # Validate environment format
+    local environment=$(yq eval '.environment' "$config_file")
+    if [[ ! "$environment" =~ ^(dev|uat|prod)$ ]]; then
+        echo "❌ environment must be one of dev, uat, prod: $environment"
         return 1
     fi
     
@@ -198,14 +241,18 @@ generate_tfvars_from_yaml() {
     
     echo "🔧 Generating .tfvars files from YAML configuration..."
     
-    # Use folder name as technical app name
-    local app_name=$(basename "$app_folder")
+    # Extract components from folder structure
+    local full_path=$(realpath "$app_folder")
+    local division_name=$(basename "$(dirname "$(dirname "$full_path")")")
+    local app_name=$(basename "$(dirname "$full_path")")
+    local environment=$(basename "$full_path")
+    
     # Get cmdb_app_name (CMDB name) from YAML
     local cmdb_app_name=$(yq eval '.cmdb_app_name' "$config_file")
     # Get CMDB short name from YAML
     local cmdb_short_name=$(yq eval '.cmdb_short_name' "$config_file")
-    # Get division name from YAML
-    local division_name=$(yq eval '.division_name' "$config_file")
+    # Get environment from YAML
+    local environment_yaml=$(yq eval '.environment' "$config_file")
     
     # Get app configuration
     local create_2leg=$(yq eval '.app_config.create_2leg' "$config_file")
@@ -228,22 +275,22 @@ generate_tfvars_from_yaml() {
     # Generate .tfvars files for each enabled app type
     if [[ "$create_2leg" == "true" ]]; then
         echo "📝 Generating 2-leg API configuration..."
-        generate_2leg_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$trusted_origins" "$bookmarks"
+        generate_2leg_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$environment" "$trusted_origins" "$bookmarks"
     fi
     
     if [[ "$create_3leg_frontend" == "true" ]]; then
         echo "📝 Generating 3-leg frontend configuration..."
-        generate_3leg_frontend_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
+        generate_3leg_frontend_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$environment" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
     fi
     
     if [[ "$create_3leg_backend" == "true" ]]; then
         echo "📝 Generating 3-leg backend configuration..."
-        generate_3leg_backend_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
+        generate_3leg_backend_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$environment" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
     fi
     
     if [[ "$create_3leg_native" == "true" ]]; then
         echo "📝 Generating 3-leg native configuration..."
-        generate_3leg_native_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
+        generate_3leg_native_tfvars "$app_folder" "$app_name" "$cmdb_app_name" "$division_name" "$cmdb_short_name" "$environment" "$redirect_uris" "$post_logout_uris" "$trusted_origins" "$bookmarks"
     fi
     
     echo "✅ .tfvars files generated successfully"
@@ -256,14 +303,16 @@ generate_2leg_tfvars() {
     local cmdb_app_name="$3"
     local division_name="$4"
     local cmdb_short_name="$5"
-    local trusted_origins="$6"
-    local bookmarks="$7"
+    local environment="$6"
+    local trusted_origins="$7"
+    local bookmarks="$8"
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    local environment_upper=$(echo "$environment" | tr '[:lower:]' '[:upper:]')
     local output_file="$app_folder/2leg-api.tfvars"
     cat > "$output_file" << EOF
-# 2-leg API Configuration for $cmdb_app_name
-app_name = "${division_name}_${cmdb_short_name}_API_SVCS"
-app_label = "${division_name}_${cmdb_short_name}_API_SVCS"
+# 2-leg API Configuration for $cmdb_app_name ($environment)
+app_name = "${division_name}_${cmdb_short_name}_API_SVCS_${environment_upper}"
+app_label = "${division_name}_${cmdb_short_name}_API_SVCS_${environment_upper}"
 token_endpoint_auth_method = "client_secret_basic"
 EOF
     # Only add trusted origin if present in YAML
@@ -305,19 +354,21 @@ generate_3leg_frontend_tfvars() {
     local cmdb_app_name="$3"
     local division_name="$4"
     local cmdb_short_name="$5"
-    local redirect_uris="$6"
-    local post_logout_uris="$7"
-    local trusted_origins="$8"
-    local bookmarks="$9"
+    local environment="$6"
+    local redirect_uris="$7"
+    local post_logout_uris="$8"
+    local trusted_origins="$9"
+    local bookmarks="${10}"
     
     # Convert app_name to lowercase and replace underscores with hyphens
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    local environment_upper=$(echo "$environment" | tr '[:lower:]' '[:upper:]')
     
     # Create the .tfvars file
     cat > "$app_folder/3leg-frontend.tfvars" << EOF
-# 3-leg Frontend Configuration for $cmdb_app_name
-app_name = "${division_name}_${cmdb_short_name}_OIDC_SPA"
-app_label = "${division_name}_${cmdb_short_name}_OIDC_SPA"
+# 3-leg Frontend Configuration for $cmdb_app_name ($environment)
+app_name = "${division_name}_${cmdb_short_name}_OIDC_SPA_${environment_upper}"
+app_label = "${division_name}_${cmdb_short_name}_OIDC_SPA_${environment_upper}"
 grant_types = ["authorization_code", "refresh_token"]
 redirect_uris = [
 EOF
@@ -333,23 +384,23 @@ EOF
 response_types = ["code"]
 token_endpoint_auth_method = "none"
 
-group_name = "${division_name}_${cmdb_short_name}_SPA_ACCESS"
-group_description = "Access group for $cmdb_app_name Frontend"
+group_name = "${division_name}_${cmdb_short_name}_SPA_ACCESS_${environment_upper}"
+group_description = "Access group for $cmdb_app_name Frontend ($environment)"
 
-trusted_origin_name = "${division_name}_${cmdb_short_name}_SPA_ORIGIN"
-trusted_origin_url = "https://$app_name_lower.example.com"
+trusted_origin_name = "${division_name}_${cmdb_short_name}_SPA_ORIGIN_${environment_upper}"
+trusted_origin_url = "https://$app_name_lower-${environment}.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "${division_name}_${cmdb_short_name}_OIDC_SPA"
-    group_name = "${division_name}_${cmdb_short_name}_SPA_ACCESS"
+    app_name = "${division_name}_${cmdb_short_name}_OIDC_SPA_${environment_upper}"
+    group_name = "${division_name}_${cmdb_short_name}_SPA_ACCESS_${environment_upper}"
   }
 ]
 
-bookmark_name = "${division_name}_${cmdb_short_name}_SPA_BOOKMARK"
-bookmark_label = "$cmdb_app_name Frontend Admin"
-bookmark_url = "https://$app_name_lower.example.com"
+bookmark_name = "${division_name}_${cmdb_short_name}_SPA_BOOKMARK_${environment_upper}"
+bookmark_label = "$cmdb_app_name Frontend Admin ($environment)"
+bookmark_url = "https://$app_name_lower-${environment}.example.com"
 EOF
 }
 
@@ -360,15 +411,17 @@ generate_3leg_backend_tfvars() {
     local cmdb_app_name="$3"
     local division_name="$4"
     local cmdb_short_name="$5"
-    local redirect_uris="$6"
-    local post_logout_uris="$7"
-    local trusted_origins="$8"
-    local bookmarks="$9"
+    local environment="$6"
+    local redirect_uris="$7"
+    local post_logout_uris="$8"
+    local trusted_origins="$9"
+    local bookmarks="${10}"
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    local environment_upper=$(echo "$environment" | tr '[:lower:]' '[:upper:]')
     cat > "$app_folder/3leg-backend.tfvars" << EOF
-# 3-leg Backend Configuration for $cmdb_app_name
-app_name = "${division_name}_${cmdb_short_name}_OIDC_WA"
-app_label = "${division_name}_${cmdb_short_name}_OIDC_WA"
+# 3-leg Backend Configuration for $cmdb_app_name ($environment)
+app_name = "${division_name}_${cmdb_short_name}_OIDC_WA_${environment_upper}"
+app_label = "${division_name}_${cmdb_short_name}_OIDC_WA_${environment_upper}"
 grant_types = ["authorization_code", "refresh_token"]
 redirect_uris = [
 EOF
@@ -380,23 +433,23 @@ EOF
 response_types = ["code"]
 token_endpoint_auth_method = "client_secret_basic"
 
-group_name = "${division_name}_${cmdb_short_name}_WA_ACCESS"
-group_description = "Access group for $cmdb_app_name Backend"
+group_name = "${division_name}_${cmdb_short_name}_WA_ACCESS_${environment_upper}"
+group_description = "Access group for $cmdb_app_name Backend ($environment)"
 
-trusted_origin_name = "${division_name}_${cmdb_short_name}_WA_ORIGIN"
-trusted_origin_url = "https://$app_name_lower.example.com"
+trusted_origin_name = "${division_name}_${cmdb_short_name}_WA_ORIGIN_${environment_upper}"
+trusted_origin_url = "https://$app_name_lower-${environment}.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "${division_name}_${cmdb_short_name}_OIDC_WA"
-    group_name = "${division_name}_${cmdb_short_name}_WA_ACCESS"
+    app_name = "${division_name}_${cmdb_short_name}_OIDC_WA_${environment_upper}"
+    group_name = "${division_name}_${cmdb_short_name}_WA_ACCESS_${environment_upper}"
   }
 ]
 
-bookmark_name = "${division_name}_${cmdb_short_name}_WA_BOOKMARK"
-bookmark_label = "$cmdb_app_name Backend Admin"
-bookmark_url = "https://$app_name_lower.example.com"
+bookmark_name = "${division_name}_${cmdb_short_name}_WA_BOOKMARK_${environment_upper}"
+bookmark_label = "$cmdb_app_name Backend Admin ($environment)"
+bookmark_url = "https://$app_name_lower-${environment}.example.com"
 EOF
 }
 
@@ -407,15 +460,17 @@ generate_3leg_native_tfvars() {
     local cmdb_app_name="$3"
     local division_name="$4"
     local cmdb_short_name="$5"
-    local redirect_uris="$6"
-    local post_logout_uris="$7"
-    local trusted_origins="$8"
-    local bookmarks="$9"
+    local environment="$6"
+    local redirect_uris="$7"
+    local post_logout_uris="$8"
+    local trusted_origins="$9"
+    local bookmarks="${10}"
     local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    local environment_upper=$(echo "$environment" | tr '[:lower:]' '[:upper:]')
     cat > "$app_folder/3leg-native.tfvars" << EOF
-# 3-leg Native Configuration for $cmdb_app_name
-app_name = "${division_name}_${cmdb_short_name}_OIDC_NA"
-app_label = "${division_name}_${cmdb_short_name}_OIDC_NA"
+# 3-leg Native Configuration for $cmdb_app_name ($environment)
+app_name = "${division_name}_${cmdb_short_name}_OIDC_NA_${environment_upper}"
+app_label = "${division_name}_${cmdb_short_name}_OIDC_NA_${environment_upper}"
 grant_types = ["password", "refresh_token", "authorization_code"]
 redirect_uris = [
 EOF
@@ -427,23 +482,23 @@ EOF
 response_types = ["code"]
 token_endpoint_auth_method = "client_secret_basic"
 
-group_name = "${division_name}_${cmdb_short_name}_NA_ACCESS"
-group_description = "Access group for $cmdb_app_name Native"
+group_name = "${division_name}_${cmdb_short_name}_NA_ACCESS_${environment_upper}"
+group_description = "Access group for $cmdb_app_name Native ($environment)"
 
-trusted_origin_name = "${division_name}_${cmdb_short_name}_NA_ORIGIN"
-trusted_origin_url = "https://$app_name_lower.example.com"
+trusted_origin_name = "${division_name}_${cmdb_short_name}_NA_ORIGIN_${environment_upper}"
+trusted_origin_url = "https://$app_name_lower-${environment}.example.com"
 trusted_origin_scopes = ["CORS", "REDIRECT"]
 
 app_group_assignments = [
   {
-    app_name = "${division_name}_${cmdb_short_name}_OIDC_NA"
-    group_name = "${division_name}_${cmdb_short_name}_NA_ACCESS"
+    app_name = "${division_name}_${cmdb_short_name}_OIDC_NA_${environment_upper}"
+    group_name = "${division_name}_${cmdb_short_name}_NA_ACCESS_${environment_upper}"
   }
 ]
 
-bookmark_name = "${division_name}_${cmdb_short_name}_NA_BOOKMARK"
-bookmark_label = "$cmdb_app_name Native Admin"
-bookmark_url = "https://$app_name_lower.example.com"
+bookmark_name = "${division_name}_${cmdb_short_name}_NA_BOOKMARK_${environment_upper}"
+bookmark_label = "$cmdb_app_name Native Admin ($environment)"
+bookmark_url = "https://$app_name_lower-${environment}.example.com"
 EOF
 }
 
@@ -468,8 +523,8 @@ main() {
     echo "🔍 Validating app configuration: $app_name"
     echo ""
     
-    # Validate folder name
-    if ! validate_folder_name "$app_folder" "$config_file"; then
+    # Validate folder structure
+    if ! validate_folder_structure "$app_folder" "$config_file"; then
         exit 1
     fi
     
