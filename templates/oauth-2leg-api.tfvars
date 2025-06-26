@@ -3,7 +3,7 @@
 
 # OAuth App Configuration
 app_name = "{{APP_NAME}}"
-app_label = "{{APP_LABEL}}"
+app_label = "DIVISION_SHORTNAME_API_SVCS"
 
 # Grant Types for 2-leg (API Services) - Client Credentials only
 grant_types = ["client_credentials"]
@@ -16,6 +16,8 @@ response_types = []
 
 # Authentication method for API services
 token_endpoint_auth_method = "client_secret_basic"
+omit_secret = false
+auto_key_rotation = true
 
 # App visibility settings - Hidden from users since it's server-to-server
 auto_submit_toolbar = false
@@ -24,6 +26,9 @@ hide_web = true
 
 # Optional settings
 issuer_mode = "ORG_URL"
+consent_method = "TRUSTED"
+login_mode = "DISABLED"
+status = "ACTIVE"
 pkce_required = null
 
 # Group for API access

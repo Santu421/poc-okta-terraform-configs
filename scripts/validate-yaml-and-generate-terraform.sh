@@ -333,6 +333,15 @@ generate_2leg_tfvars() {
 # 2-leg API Configuration for $cmdb_app_name ($environment)
 app_label = "${division}_${cmdb_short_name}_API_SVCS"
 token_endpoint_auth_method = "client_secret_basic"
+omit_secret = false
+auto_key_rotation = true
+auto_submit_toolbar = false
+hide_ios = true
+hide_web = true
+issuer_mode = "ORG_URL"
+consent_method = "TRUSTED"
+login_mode = "DISABLED"
+status = "ACTIVE"
 EOF
     # Only add trusted origin if present in YAML
     if [[ -n "$trusted_origins" ]]; then
