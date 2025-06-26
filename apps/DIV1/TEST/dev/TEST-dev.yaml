@@ -1,4 +1,3 @@
-environment: dev
 app_config:
   create_2leg: true
   create_3leg_frontend: false
