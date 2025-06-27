@@ -35,6 +35,27 @@ na = {
     scopes = ["CORS", "REDIRECT"]
   }
   
-  # Optional bookmark (can be null or omitted entirely for app limits)
-  bookmark = null
+  # Bookmark configuration with optional parameters for testing
+  bookmark = {
+    name = "DIV1_TEST_BOOKMARK"
+    label = "DIV1 TEST Bookmark App"
+    url = "https://test-bookmark.company.com"
+    status = "ACTIVE"
+    
+    # Testing optional parameters
+    admin_note = "Test admin note for DIV1 TEST bookmark app"
+    enduser_note = "Test end user note for bookmark"
+    hide_ios = true
+    hide_web = false
+    auto_submit_toolbar = true
+    accessibility_self_service = true
+    request_integration = false
+    
+    # Test timeouts
+    timeouts = {
+      create = "5m"
+      read = "3m"
+      update = "5m"
+    }
+  }
 } 
