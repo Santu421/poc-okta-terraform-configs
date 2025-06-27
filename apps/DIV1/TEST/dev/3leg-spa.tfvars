@@ -37,11 +37,11 @@ spa = {
   trusted_origin_url = "http://localhost:3002"
   trusted_origin_scopes = ["CORS", "REDIRECT"]
 
-  # Bookmark App (optional - for admin access)
-  bookmark_label = "DIV1_TEST_SPA"
-  bookmark_url = "http://localhost:3002"
-  bookmark_status = "ACTIVE"
-  bookmark_auto_submit_toolbar = false
-  bookmark_hide_ios = false
-  bookmark_hide_web = false
+  # Bookmark App (optional - for admin access) - COMMENTED OUT TO STAY WITHIN 5-APP LIMIT
+  # bookmark_label = "DIV1_TEST_SPA"
+  # bookmark_url = "http://localhost:3002"
+  # bookmark_status = "ACTIVE"
+  # bookmark_auto_submit_toolbar = false
+  # bookmark_hide_ios = false
+  # bookmark_hide_web = false
 } 
