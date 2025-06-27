@@ -1,52 +1,43 @@
 # Template for 3-Leg OAuth Application (Web App Backend)
 # This template is for web applications using authorization code flow only
 
-# OAuth App Configuration
-app_name = "{{APP_NAME}}"
-app_label = "{{APP_LABEL}}"
+# 3-Leg Web App Template Configuration
 
-# Grant Types for 3-leg (Web App) - Authorization Code only
-grant_types = ["authorization_code", "refresh_token"]
-
-# Redirect URIs for Web App
-redirect_uris = [
-  "{{REDIRECT_URI}}",
-  "{{LOGOUT_REDIRECT_URI}}"
-]
-
-# Response Types for Web App
-response_types = ["code"]
-
-# Authentication method for Web App (client secret for server-side)
-token_endpoint_auth_method = "client_secret_basic"
-pkce_required = false
-
-# App visibility settings - Visible to users
-auto_submit_toolbar = false
-hide_ios = false
-hide_web = false
-
-# Optional settings
-issuer_mode = "ORG_URL"
-
-# Group for Web App access
-group_name = "{{GROUP_NAME}}"
-group_description = "Access group for {{APP_LABEL}} Web App"
-
-# Trusted Origin for Web App
-trusted_origin_name = "{{TRUSTED_ORIGIN_NAME}}"
-trusted_origin_url = "{{TRUSTED_ORIGIN_URL}}"
-trusted_origin_scopes = ["CORS", "REDIRECT"]
-
-# App-Group Assignments
-app_group_assignments = [
-  {
-    app_name = "{{APP_NAME}}"
-    group_name = "{{GROUP_NAME}}"
+web = {
+  # Core OAuth app config (always required)
+  app = {
+    label = "DIV1_APPNAME_WEB"
+    client_id = "DIV1_APPNAME_WEB"
+    token_endpoint_auth_method = "client_secret_basic"
+    pkce_required = true
+    login_mode = "DISABLED"
+    type = "web"
+    redirect_uris = [
+      "https://appname.company.com/callback",
+      "https://appname.company.com/logout"
+    ]
+    auto_submit_toolbar = false
+    hide_ios = true
+    hide_web = true
+    issuer_mode = "ORG_URL"
+    status = "ACTIVE"
+    grant_types = ["authorization_code", "refresh_token", "client_credentials"]
+    response_types = ["code"]
   }
-]
-
-# Bookmark App (optional - for admin access)
-bookmark_name = "{{BOOKMARK_NAME}}"
-bookmark_label = "{{BOOKMARK_LABEL}}"
-bookmark_url = "{{BOOKMARK_URL}}" 
+  
+  # Group configuration (usually required)
+  group = {
+    name = "DIV1_APPNAME_WEB_ACCESS_V1"
+    description = "Access group for DIV1 APPNAME Web App"
+  }
+  
+  # Trusted origin configuration (usually required)
+  trusted_origin = {
+    name = "DIV1_APPNAME_WEB_ORIGIN_V1"
+    url = "https://appname.company.com"
+    scopes = ["CORS", "REDIRECT"]
+  }
+  
+  # Optional bookmark (can be null or omitted entirely for app limits)
+  bookmark = null
+} 

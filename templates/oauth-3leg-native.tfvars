@@ -1,51 +1,43 @@
 # Template for 3-Leg OAuth Application (Native Mobile/Desktop)
-# This template is for native applications using password grant type (Resource Owner Password Credentials)
+# This template is for native applications using authorization code flow
 
-# OAuth App Configuration
-app_name = "{{APP_NAME}}"
-app_label = "{{APP_LABEL}}"
+# 3-Leg Native App Template Configuration
 
-# Grant Types for 3-leg (Native) - Password grant for native apps
-grant_types = ["password", "refresh_token"]
-
-# Redirect URIs for native apps (if needed for logout)
-redirect_uris = [
-  "{{LOGOUT_REDIRECT_URI}}"
-]
-
-# Response Types for Native (none for password grant)
-response_types = []
-
-# Authentication method for Native apps (client secret for server-side token exchange)
-token_endpoint_auth_method = "client_secret_basic"
-pkce_required = false
-
-# App visibility settings - Visible to users
-auto_submit_toolbar = false
-hide_ios = false
-hide_web = false
-
-# Optional settings
-issuer_mode = "ORG_URL"
-
-# Group for Native app access
-group_name = "{{GROUP_NAME}}"
-group_description = "Access group for {{APP_LABEL}} Native App"
-
-# Trusted Origin for Native app (if needed for web components)
-trusted_origin_name = "{{TRUSTED_ORIGIN_NAME}}"
-trusted_origin_url = "{{TRUSTED_ORIGIN_URL}}"
-trusted_origin_scopes = ["CORS"]
-
-# App-Group Assignments
-app_group_assignments = [
-  {
-    app_name = "{{APP_NAME}}"
-    group_name = "{{GROUP_NAME}}"
+na = {
+  # Core OAuth app config (always required)
+  app = {
+    label = "DIV1_APPNAME_NATIVE"
+    client_id = "DIV1_APPNAME_NATIVE"
+    token_endpoint_auth_method = "client_secret_basic"
+    pkce_required = true
+    login_mode = "DISABLED"
+    type = "native"
+    redirect_uris = [
+      "com.appname.app://callback",
+      "com.appname.app://logout"
+    ]
+    auto_submit_toolbar = false
+    hide_ios = true
+    hide_web = true
+    issuer_mode = "ORG_URL"
+    status = "ACTIVE"
+    grant_types = ["password", "refresh_token", "authorization_code"]
+    response_types = ["code"]
   }
-]
-
-# Bookmark App (optional - for admin access)
-bookmark_name = "{{BOOKMARK_NAME}}"
-bookmark_label = "{{BOOKMARK_LABEL}}"
-bookmark_url = "{{BOOKMARK_URL}}" 
+  
+  # Group configuration (usually required)
+  group = {
+    name = "DIV1_APPNAME_NATIVE_ACCESS_V1"
+    description = "Access group for DIV1 APPNAME Native App"
+  }
+  
+  # Trusted origin configuration (usually required)
+  trusted_origin = {
+    name = "DIV1_APPNAME_NATIVE_ORIGIN_V1"
+    url = "http://localhost:3003"
+    scopes = ["CORS", "REDIRECT"]
+  }
+  
+  # Optional bookmark (can be null or omitted entirely for app limits)
+  bookmark = null
+} 
