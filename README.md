@@ -1,349 +1,385 @@
 # Okta Terraform Configurations
 
-This repository contains per-application Okta configurations managed by the Ops team. Each application is defined using YAML configuration files that are validated and converted to Terraform variables.
+This repository contains metadata-driven Okta application configurations using YAML files and Terraform variables. The system supports multiple OAuth application types with centralized metadata management and environment-specific configurations.
 
-## Quick Start
+## 🚀 Features
 
-### 1. Create Application Configuration
+- **Metadata-Driven**: Centralized metadata at app level with environment-specific configs
+- **Multi-App Types**: Support for 2-leg API, 3-leg SPA, Web, and Native applications
+- **Environment Isolation**: Separate configurations for dev, uat, and prod environments
+- **Object-Based Variables**: Clean `.tfvars` structure using `oauth2`, `spa`, `web`, and `na` objects
+- **Conditional Resources**: Optional bookmark apps and other resources
+- **Validation Scripts**: Comprehensive validation and generation tools
+- **Template System**: Reusable templates for different application types
 
-Create a folder following the naming convention: `DIVISIONNAME_CMDBSHORTNAME`
-
-```bash
-# Example: Create a finance expense tracker app for Division 1
-mkdir apps/DIV1_ET
-```
-
-**Naming Rules:**
-- Division name must be one of: `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
-- CMDB short name should be uppercase alphanumeric (e.g., `ET`)
-- Example: `DIV1_ET`
-
-### 2. Create YAML Configuration
-
-Create `app-config.yaml` in your app folder:
-
-```yaml
-cmdb_app_name: "Finance Expense Tracker"
-division_name: "DIV1"
-cmdb_short_name: "ET"  # Uppercase alphanumeric only
-point_of_contact_email: "finance-team@company.com"
-app_owner: "Finance IT Team"
-onboarding_snow_request: "SNOWREQ123456"
-
-app_config:
-  create_2leg: true              # API service
-  create_3leg_frontend: true     # SPA frontend
-  create_3leg_backend: false     # Web backend
-  create_3leg_native: false      # Native app
-  create_saml: false             # Not implemented yet
-  
-  scopes:
-    - "openid"
-    - "profile"
-    - "email"
-    - "finance:read"
-    - "finance:write"
-  
-  redirect_uris:
-    - "https://finance-expense.company.com/callback"
-    - "http://localhost:3000/callback"
-  
-  post_logout_uris:
-    - "https://finance-expense.company.com/logout"
-
-trusted_origins:
-  - name: "Finance Frontend"
-    url: "https://finance-expense.company.com"
-    scopes: ["CORS", "REDIRECT"]
-
-bookmarks:
-  - name: "Finance Admin"
-    label: "Finance Expense Tracker - Admin"
-    url: "https://finance-expense.company.com/admin"
-```
-
-### 3. Validate and Generate
-
-```bash
-# Validate YAML configuration and generate .tfvars files
-./scripts/validate-yaml-config.sh apps/DIV1_ET
-```
-
-This will:
-- ✅ Validate folder naming matches `division_name_cmdb_short_name` from YAML
-- ✅ Validate YAML configuration
-- ✅ Generate `.tfvars` files for enabled app types
-- ✅ Create proper naming for Okta resources
-
-### 4. Generated Files
-
-The script generates these files based on your configuration:
-
-```
-apps/DIV1_ET/
-├── app-config.yaml          # Your configuration
-├── 2leg-api.tfvars          # 2-leg API configuration
-└── 3leg-frontend.tfvars     # 3-leg frontend configuration
-```
-
-## Naming Conventions
-
-### Folder Naming
-- **Pattern**: `DIVISIONNAME_CMDBSHORTNAME`
-- **Division Names**: Must be one of `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
-- **CMDB Short Name**: Uppercase alphanumeric only
-- **Example**: `DIV1_ET`
-
-### Okta App Names
-Based on division and CMDB short name:
-
-| App Type | Pattern | Example |
-|----------|---------|---------|
-| 2-leg API | `DIVISIONNAME_CMDBNAME_API_SVCS` | `DIV1_ET_API_SVCS` |
-| 3-leg Backend | `DIVISIONNAME_CMDBNAME_OIDC_WA` | `DIV1_ET_OIDC_WA` |
-| 3-leg Native | `DIVISIONNAME_CMDBNAME_OIDC_NA` | `DIV1_ET_OIDC_NA` |
-| 3-leg Frontend | `DIVISIONNAME_CMDBNAME_OIDC_SPA` | `DIV1_ET_OIDC_SPA` |
-
-### CMDB Short Name
-- **Format**: Uppercase alphanumeric only
-- **Purpose**: Short identifier for the application
-- **Example**: `ET` for "Finance Expense Tracker"
-
-## Validation Rules
-
-### Folder Naming
-- Must match pattern: `DIVISIONNAME_CMDBSHORTNAME`
-- Division name in YAML must match folder prefix
-- CMDB short name in YAML must match folder prefix
-- Example: `DIV1_ET`
-
-### YAML Configuration
-- ✅ Required fields: `cmdb_app_name`, `division_name`, `cmdb_short_name`, `point_of_contact_email`, `app_owner`, `onboarding_snow_request`
-- ✅ Email format validation
-- ✅ Division name: must be one of DIV1-DIV6
-- ✅ CMDB short name: uppercase alphanumeric only
-- ✅ Only one 3-leg type can be enabled at a time
-- ✅ At least one OAuth type must be enabled
-- ✅ SAML must be false (not implemented yet)
-
-### Allowed Combinations
-| Combination | 2-leg | 3-leg Frontend | 3-leg Backend | 3-leg Native |
-|-------------|-------|----------------|---------------|--------------|
-| API Only | ✅ | ❌ | ❌ | ❌ |
-| Frontend Only | ❌ | ✅ | ❌ | ❌ |
-| Backend Only | ❌ | ❌ | ✅ | ❌ |
-| Native Only | ❌ | ❌ | ❌ | ✅ |
-| API + Frontend | ✅ | ✅ | ❌ | ❌ |
-| API + Backend | ✅ | ❌ | ✅ | ❌ |
-| API + Native | ✅ | ❌ | ❌ | ✅ |
-
-## Scripts
-
-### `validate-yaml-config.sh`
-Validates YAML configuration and generates `.tfvars` files.
-
-```bash
-./scripts/validate-yaml-config.sh apps/DIV1_ET
-```
-
-### `validate-all-apps.sh`
-Validates all applications in the `apps/` directory.
-
-```bash
-./scripts/validate-all-apps.sh
-```
-
-### `list-apps.sh`
-Lists all available applications.
-
-```bash
-./scripts/list-apps.sh
-```
-
-## Examples
-
-See `apps/DIV1_ET/` for a complete example including:
-- YAML configuration
-- Generated `.tfvars` files
-- Trusted origins and bookmarks
-
-## Workflow
-
-For complete workflow documentation, see [WORKFLOW.md](WORKFLOW.md).
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Invalid folder name**
-   ```
-   ❌ Invalid folder name: DIV1_FINANCE_EXPENSE_TRACKER
-   Expected pattern: DIV1_ET_APPNAME
-   YAML division_name: DIV1
-   YAML cmdb_short_name: ET
-   ```
-   **Solution**: Rename to `DIV1_ET_FINANCE_EXPENSE_TRACKER`
-
-2. **Invalid division name**
-   ```
-   ❌ division_name must be one of DIV1-DIV6: DIV7
-   ```
-   **Solution**: Use a valid division name (DIV1-DIV6)
-
-3. **Invalid CMDB short name**
-   ```
-   ❌ cmdb_short_name must be uppercase alphanumeric only: et
-   ```
-   **Solution**: Use uppercase alphanumeric only (e.g., "ET")
-
-4. **Multiple 3-leg types**
-   ```
-   ❌ Only one 3-leg app type can be enabled at a time
-   ```
-   **Solution**: Enable only one of frontend/backend/native
-
-## Team Responsibilities
-
-- **Ops Team**: Creates YAML configurations, validates, generates `.tfvars`
-- **Engineering Team**: Maintains Terraform modules, enforces business rules
-
-## Future Enhancements
-
-- [ ] SAML app support
-- [ ] Multi-environment support (DEV, SI, QA, UAT, PROD)
-- [ ] Automated deployment pipelines
-- [ ] Advanced validation rules
-
-## Architecture
-
-```
-Pipeline Flow:
-1. Checkout poc-okta-terraform-modules
-2. Checkout poc-okta-terraform-configs  
-3. Run shell script to:
-   - Copy .tfvars content into module variables
-   - Generate main.tf from templates
-4. Run terraform plan/apply
-```
-
-## Structure
+## 📁 Repository Structure
 
 ```
 poc-okta-terraform-configs/
-├── apps/                    # Per-app configurations
-│   ├── app1/               # Each app gets its own folder
-│   │   ├── app1.tfvars     # OAuth app configuration
-│   │   ├── bookmark1.tfvars # Bookmark app configuration
-│   │   ├── group1.tfvars   # Group configuration
-│   │   ├── assignments.tfvars # App-group assignments
-│   │   └── trusted_origin1.tfvars # Trusted origin
-│   └── app2/
-│       └── ...
-├── scripts/                 # Build and deployment scripts
-│   ├── generate-terraform.sh # Generates Terraform from .tfvars
-│   └── deploy-app.sh        # Main deployment pipeline
-├── shared/                  # Shared resources across apps
-│   ├── groups/             # Common groups
-│   ├── policies/           # Common policies
-│   └── trusted_origins/    # Common trusted origins
-├── environments/           # Environment-specific configurations
-│   ├── dev/
-│   ├── staging/
-│   └── prod/
-└── generated/              # Auto-generated Terraform files (created by pipeline)
+├── apps/                    # Application configurations
+│   ├── DIV1/               # Division 1 applications
+│   │   └── TEST/           # TEST application
+│   │       ├── TEST-metadata.yaml    # App-level metadata
+│   │       └── dev/        # Environment-specific configs
+│   │           ├── TEST-dev.yaml     # Environment config
+│   │           ├── 2leg-api.tfvars   # 2-leg API variables
+│   │           ├── 3leg-spa.tfvars   # 3-leg SPA variables
+│   │           ├── 3leg-web.tfvars   # 3-leg Web variables
+│   │           └── 3leg-native.tfvars # 3-leg Native variables
+│   └── DIV2/               # Division 2 applications
+├── templates/               # Template files
+│   ├── oauth-2leg-api.tfvars
+│   ├── oauth-3leg-spa.tfvars
+│   ├── oauth-3leg-webapp.tfvars
+│   ├── oauth-3leg-native.tfvars
+│   └── oauth-hybrid-spa-api.tfvars
+├── scripts/                 # Validation and generation scripts
+│   ├── validate-all-apps.sh
+│   ├── validate-app-config.sh
+│   ├── generate-app-from-template.sh
+│   ├── generate-terraform.sh
+│   └── list-apps.sh
+├── app-config-schema.yaml   # YAML schema for validation
+└── app-type-mapping.example.txt # App type mapping examples
 ```
 
-## Usage
+## 🏗️ Application Structure
 
-### Deploy a Single App
+### Metadata File (`{app-name}-metadata.yaml`)
+Located at the app level, contains shared metadata across all environments:
+
+```yaml
+parent_cmdb_name: "Complify Application"
+division: "DIV1"
+cmdb_app_short_name: "TEST"
+team_dl: "div4-team@company.com"
+requested_by: "aadyasri@company.com"
+```
+
+### Environment Configuration (`{app-name}-{environment}.yaml`)
+Located in environment folders, defines which app types to create:
+
+```yaml
+app_config:
+  create_2leg: true          # 2-leg API service
+  create_3leg_frontend: true # 3-leg SPA frontend
+  create_3leg_backend: true  # 3-leg Web backend
+  create_3leg_native: true   # 3-leg Native app
+```
+
+## 📋 Quick Start
+
+### 1. Create Application Structure
 
 ```bash
-# Make scripts executable
-chmod +x scripts/*.sh
-
-# Deploy app1 to dev environment
-./scripts/deploy-app.sh apps/app1 app1 dev plan
-./scripts/deploy-app.sh apps/app1 app1 dev apply
+# Create division and app folders
+mkdir -p apps/DIV1/MYAPP
+mkdir -p apps/DIV1/MYAPP/dev
+mkdir -p apps/DIV1/MYAPP/uat
+mkdir -p apps/DIV1/MYAPP/prod
 ```
 
-### Manual Generation (for testing)
+### 2. Create Metadata File
+
+Create `apps/DIV1/MYAPP/MYAPP-metadata.yaml`:
+
+```yaml
+parent_cmdb_name: "My Application"
+division: "DIV1"
+cmdb_app_short_name: "MYAPP"
+team_dl: "myapp-team@company.com"
+requested_by: "developer@company.com"
+```
+
+### 3. Create Environment Configuration
+
+Create `apps/DIV1/MYAPP/dev/MYAPP-dev.yaml`:
+
+```yaml
+app_config:
+  create_2leg: true
+  create_3leg_frontend: true
+  create_3leg_backend: false
+  create_3leg_native: false
+```
+
+### 4. Generate Application Variables
 
 ```bash
-# Generate Terraform files without deploying
-./scripts/generate-terraform.sh apps/app1 app1
+# Generate from templates
+./scripts/generate-app-from-template.sh apps/DIV1/MYAPP dev
 
-# Navigate to generated directory
-cd generated/app1
-
-# Run Terraform manually
-terraform init
-terraform plan
-terraform apply
+# Or create manually using templates as reference
+cp templates/oauth-2leg-api.tfvars apps/DIV1/MYAPP/dev/2leg-api.tfvars
+cp templates/oauth-3leg-spa.tfvars apps/DIV1/MYAPP/dev/3leg-spa.tfvars
 ```
 
-## Configuration Format
+### 5. Customize Variables
 
-### OAuth App (.tfvars)
+Edit the generated `.tfvars` files:
+
 ```hcl
-# OAuth App Configuration
-app_name = "app1"
-app_label = "My OAuth App"
-grant_types = ["authorization_code"]
-redirect_uris = ["https://app1.example.com/callback"]
-response_types = ["code"]
-token_endpoint_auth_method = "client_secret_basic"
-auto_submit_toolbar = false
-hide_ios = false
-hide_web = false
-issuer_mode = "ORG_URL"
-pkce_required = true
+# 2leg-api.tfvars
+oauth2 = {
+  label = "DIV1_MYAPP_API_SVCS"
+  client_id = "DIV1_MYAPP_API_SVCS"
+  token_endpoint_auth_method = "client_secret_basic"
+  omit_secret = true
+  login_mode = "DISABLED"
+  hide_ios = true
+  hide_web = true
+}
+
+# 3leg-spa.tfvars
+spa = {
+  label = "DIV1_MYAPP_SPA"
+  client_id = "DIV1_MYAPP_SPA"
+  token_endpoint_auth_method = "none"
+  pkce_required = true
+  redirect_uris = [
+    "http://localhost:3000/callback",
+    "http://localhost:3000/logout"
+  ]
+  group_name = "DIV1_MYAPP_SPA_ACCESS_V1"
+  trusted_origin_name = "DIV1_MYAPP_SPA_ORIGIN_V1"
+  trusted_origin_url = "http://localhost:3002"
+  # Bookmark section commented out for app limits
+  # bookmark_label = "DIV1_MYAPP_SPA"
+  # bookmark_url = "http://localhost:3002"
+}
 ```
 
-### Bookmark App (.tfvars)
+### 6. Validate Configuration
+
+```bash
+# Validate specific app
+./scripts/validate-app-config.sh apps/DIV1/MYAPP/dev/MYAPP-dev.yaml
+
+# Validate all apps
+./scripts/validate-all-apps.sh
+```
+
+## 🏷️ Naming Conventions
+
+### Application Naming
+- **Pattern**: `DIVISION_CMDB_SHORT_NAME`
+- **Example**: `DIV1_TEST`, `DIV2_MYAPP`
+
+### Okta Resource Naming
+| Resource Type | Pattern | Example |
+|---------------|---------|---------|
+| 2-leg API | `DIVISION_CMDB_API_SVCS` | `DIV1_TEST_API_SVCS` |
+| 3-leg SPA | `DIVISION_CMDB_SPA` | `DIV1_TEST_SPA` |
+| 3-leg Web | `DIVISION_CMDB_WEB` | `DIV1_TEST_WEB` |
+| 3-leg Native | `DIVISION_CMDB_NATIVE` | `DIV1_TEST_NATIVE` |
+| Groups | `DIVISION_CMDB_ACCESS_V{VERSION}` | `DIV1_TEST_SPA_ACCESS_V3` |
+| Trusted Origins | `DIVISION_CMDB_ORIGIN_V{VERSION}` | `DIV1_TEST_SPA_ORIGIN_V3` |
+
+## 🔧 Variable Structure
+
+### Object-Based Variables
+Each application type uses object-based variables for clean organization:
+
+#### 2-Leg API (`oauth2` object)
 ```hcl
-# Bookmark App Configuration
-bookmark_name = "bookmark1"
-bookmark_label = "App1 Bookmark"
-bookmark_url = "https://bookmark1.example.com"
-bookmark_status = "ACTIVE"
-auto_submit_toolbar = false
-hide_ios = false
-hide_web = false
+oauth2 = {
+  label = "DIV1_TEST_API_SVCS"
+  client_id = "DIV1_TEST_API_SVCS"
+  token_endpoint_auth_method = "client_secret_basic"
+  omit_secret = true
+  auto_key_rotation = true
+  login_mode = "DISABLED"
+  hide_ios = true
+  hide_web = true
+  issuer_mode = "ORG_URL"
+  consent_method = "TRUSTED"
+  status = "ACTIVE"
+  grant_types = ["client_credentials"]
+  response_types = ["token"]
+}
 ```
 
-### Group (.tfvars)
+#### 3-Leg SPA (`spa` object)
 ```hcl
-# Group Configuration
-group_name = "App1 Users"
-group_description = "Users who have access to App1"
-group_type = "OKTA_GROUP"
+spa = {
+  label = "DIV1_TEST_SPA"
+  client_id = "DIV1_TEST_SPA"
+  token_endpoint_auth_method = "none"
+  pkce_required = true
+  redirect_uris = [
+    "http://localhost:3000/callback",
+    "http://localhost:3000/logout"
+  ]
+  group_name = "DIV1_TEST_SPA_ACCESS_V3"
+  group_description = "Access group for DIV1 TEST SPA"
+  trusted_origin_name = "DIV1_TEST_SPA_ORIGIN_V3"
+  trusted_origin_url = "http://localhost:3002"
+  trusted_origin_scopes = ["CORS", "REDIRECT"]
+  # Optional bookmark (commented out for app limits)
+  # bookmark_label = "DIV1_TEST_SPA"
+  # bookmark_url = "http://localhost:3002"
+  # bookmark_status = "ACTIVE"
+}
 ```
 
-## Pipeline Features
+#### 3-Leg Web (`web` object)
+```hcl
+web = {
+  label = "DIV1_TEST_WEB"
+  client_id = "DIV1_TEST_WEB"
+  token_endpoint_auth_method = "client_secret_basic"
+  pkce_required = true
+  redirect_uris = [
+    "https://test-web-app.company.com/callback",
+    "https://test-web-app.company.com/logout"
+  ]
+  group_name = "DIV1_TEST_WEB_ACCESS_V1"
+  group_description = "Access group for DIV1 TEST Web App"
+  trusted_origin_name = "DIV1_TEST_WEB_ORIGIN_V1"
+  trusted_origin_url = "https://test-web-app.company.com"
+  trusted_origin_scopes = ["CORS", "REDIRECT"]
+}
+```
 
-- **Build-time Composition**: Configs are composed with modules at build time
-- **Environment Support**: Different backends and configurations per environment
-- **Isolation**: Each app is deployed independently
-- **Automation**: Full pipeline from config to deployment
-- **Version Control**: Modules are versioned and pinned
+#### 3-Leg Native (`na` object)
+```hcl
+na = {
+  label = "DIV1_TEST_NATIVE"
+  client_id = "DIV1_TEST_NATIVE"
+  token_endpoint_auth_method = "client_secret_basic"
+  pkce_required = true
+  redirect_uris = [
+    "com.test.app://callback",
+    "com.test.app://logout"
+  ]
+  group_name = "DIV1_TEST_NATIVE_ACCESS_V1"
+  group_description = "Access group for DIV1 TEST Native App"
+  trusted_origin_name = "DIV1_TEST_NATIVE_ORIGIN_V1"
+  trusted_origin_url = "http://localhost:3003"
+  trusted_origin_scopes = ["CORS", "REDIRECT"]
+}
+```
 
-## Best Practices
+## 🛠️ Scripts
 
-1. **One folder per app** - Each app gets its own directory for isolation
-2. **Simple .tfvars format** - No complex objects, just simple key-value pairs
-3. **Shared resources** - Common groups, policies in shared/ directory
-4. **Environment separation** - Use environments/ for different environments
-5. **Pipeline automation** - Use scripts for consistent deployments
+### Validation Scripts
+```bash
+# Validate all applications
+./scripts/validate-all-apps.sh
 
-## Examples
+# Validate specific app configuration
+./scripts/validate-app-config.sh apps/DIV1/TEST/dev/TEST-dev.yaml
 
-See the `apps/app1/` directory for a complete example configuration.
+# Validate YAML and generate Terraform
+./scripts/validate-yaml-and-generate-terraform.sh apps/DIV1/TEST/dev/TEST-dev.yaml
+```
 
-## Adding a New App
+### Generation Scripts
+```bash
+# Generate app from template
+./scripts/generate-app-from-template.sh apps/DIV1/MYAPP dev
 
-1. Create a new folder: `apps/app2/`
-2. Create .tfvars files for each resource type
-3. Run the deployment script:
-   ```bash
-   ./scripts/deploy-app.sh apps/app2 app2 dev plan
-   ``` 
+# Generate Terraform from YAML
+./scripts/generate-terraform.sh apps/DIV1/TEST/dev/TEST-dev.yaml
+
+# List all applications
+./scripts/list-apps.sh
+```
+
+### Deployment Scripts
+```bash
+# Deploy application
+./scripts/deploy-app.sh apps/DIV1/TEST dev
+```
+
+## 📚 Templates
+
+### Available Templates
+- `oauth-2leg-api.tfvars` - 2-leg API service template
+- `oauth-3leg-spa.tfvars` - 3-leg SPA template
+- `oauth-3leg-webapp.tfvars` - 3-leg Web app template
+- `oauth-3leg-native.tfvars` - 3-leg Native app template
+- `oauth-hybrid-spa-api.tfvars` - Hybrid SPA + API template
+
+### Using Templates
+```bash
+# Copy template to app directory
+cp templates/oauth-3leg-spa.tfvars apps/DIV1/MYAPP/dev/3leg-spa.tfvars
+
+# Edit the copied file with your specific values
+# Update label, client_id, redirect_uris, etc.
+```
+
+## 🔍 Validation Rules
+
+### Metadata Validation
+- ✅ Required fields: `parent_cmdb_name`, `division`, `cmdb_app_short_name`, `team_dl`, `requested_by`
+- ✅ Division format: Must be one of `DIV1`, `DIV2`, `DIV3`, `DIV4`, `DIV5`, `DIV6`
+- ✅ CMDB short name: Uppercase alphanumeric only
+- ✅ Email format validation for `team_dl` and `requested_by`
+
+### Environment Configuration Validation
+- ✅ At least one app type must be enabled
+- ✅ Valid app types: `create_2leg`, `create_3leg_frontend`, `create_3leg_backend`, `create_3leg_native`
+- ✅ Environment name must match folder structure
+
+### Variable File Validation
+- ✅ Required fields for each app type
+- ✅ Valid OAuth settings (grant_types, response_types, etc.)
+- ✅ Unique resource names across applications
+- ✅ Valid URLs for redirect_uris and trusted origins
+
+## 🚀 Deployment
+
+### Complete Deployment Example
+```bash
+# Deploy all app types for TEST application
+cd ../poc-okta-terraform-modules
+terraform apply \
+  -var-file="../poc-okta-terraform-configs/apps/DIV1/TEST/dev/2leg-api.tfvars" \
+  -var-file="../poc-okta-terraform-configs/apps/DIV1/TEST/dev/3leg-spa.tfvars" \
+  -var-file="../poc-okta-terraform-configs/apps/DIV1/TEST/dev/3leg-web.tfvars" \
+  -var-file="../poc-okta-terraform-configs/apps/DIV1/TEST/dev/3leg-native.tfvars" \
+  -var-file="vars/dev.tfvars" \
+  -var="app_config_path=../poc-okta-terraform-configs/apps/DIV1/TEST" \
+  -var="environment=dev" \
+  -auto-approve
+```
+
+### Environment-Specific Deployment
+```bash
+# Development
+terraform apply -var-file="vars/dev.tfvars" -var="environment=dev" ...
+
+# UAT
+terraform apply -var-file="vars/uat.tfvars" -var="environment=uat" ...
+
+# Production
+terraform apply -var-file="vars/prod.tfvars" -var="environment=prod" ...
+```
+
+## 🔒 Security Considerations
+
+- **API Tokens**: Never commit API tokens to version control
+- **Client Secrets**: Use `omit_secret = true` for public clients (SPA)
+- **Environment Isolation**: Separate configurations per environment
+- **Access Control**: Groups created automatically for access management
+- **Validation**: All configurations validated before deployment
+
+## 📝 Notes
+
+- **App Limits**: Some Okta tenants have app limits (e.g., 5 apps for dev)
+- **Bookmark Apps**: Can be disabled by commenting out bookmark sections
+- **Metadata Path**: Must point to app directory, not environment directory
+- **State Management**: Use separate state files per environment
+- **Cleanup**: Always destroy resources before recreating to avoid conflicts
+
+## 🔗 Related Repositories
+
+- [poc-okta-terraform-modules](https://github.com/Santu421/poc-okta-terraform-modules) - Terraform modules for Okta resources
+
+## 📖 Documentation
+
+- [WORKFLOW.md](WORKFLOW.md) - Complete workflow documentation
+- [Templates README](templates/README.md) - Template usage guide
+- [Scripts README](scripts/README.md) - Script documentation 
