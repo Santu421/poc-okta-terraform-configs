@@ -20,6 +20,20 @@ na = {
     status = "ACTIVE"
     grant_types = ["password", "refresh_token", "authorization_code"]
     response_types = ["code"]
+    
+    # Custom authorization groups (not Terraform defined - for profile storage)
+    OKTA_AUTHZ_GROUPS = [
+      "DIV1_DEVELOPERS",
+      "DIV1_ADMINS"
+    ]
+    APP_AUTHZ_LDAP_GROUPS = [
+      "LDAP_DIV1_DEVELOPERS",
+      "LDAP_DIV1_TESTERS"
+    ]
+    APP_AUTHZ_SPAPP_GROUPS = [
+      "SPAPP_DIV1_USERS",
+      "SPAPP_DIV1_MANAGERS"
+    ]
   }
   
   # Group configuration (usually required)
