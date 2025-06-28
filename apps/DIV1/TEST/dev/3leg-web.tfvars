@@ -36,12 +36,6 @@ web = {
     ]
   }
   
-  # Group configuration (usually required)
-  group = {
-    name = "DIV1_TEST_WEB_ACCESS_V1"
-    description = "Access group for DIV1 TEST Web App"
-  }
-  
   # Trusted origin configuration (usually required)
   trusted_origin = {
     name = "DIV1_TEST_WEB_ORIGIN_V2"

@@ -36,12 +36,6 @@ spa = {
     ]
   }
   
-  # Group configuration (usually required)
-  group = {
-    name = "DIV1_TEST_SPA_ACCESS_V3"
-    description = "Access group for DIV1 TEST SPA"
-  }
-  
   # Trusted origin configuration (usually required)
   trusted_origin = {
     name = "DIV1_TEST_SPA_ORIGIN_V4"
